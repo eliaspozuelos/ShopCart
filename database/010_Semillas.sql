@@ -7,14 +7,14 @@
 USE ShopCart;
 GO
 
-IF NOT EXISTS (SELECT 1 FROM dbo.Rol WHERE Nombre = N'Cliente')
+IF NOT EXISTS (SELECT 1 FROM dbo.Rol WHERE Nombre = N'Administrador')
   INSERT INTO dbo.Rol (Nombre) VALUES (N'Administrador');
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Rol WHERE Nombre = N'Operador')
   INSERT INTO dbo.Rol (Nombre) VALUES (N'Operador');
 
-IF NOT EXISTS (SELECT 1 FROM dbo.Rol WHERE Nombre = N'Administrador')
-  INSERT INTO dbo.Rol (Nombre) VALUES (N'Cliente');
+IF NOT EXISTS (SELECT 1 FROM dbo.Rol WHERE Nombre =  N'Cliente')
+  INSERT INTO dbo.Rol (Nombre) VALUES ( N'Cliente');
 
 /*
   Cuenta publica de demostracion. Solo para desarrollo y pruebas locales.
