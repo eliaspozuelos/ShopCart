@@ -4,7 +4,7 @@ import { ZodError } from 'zod';
 import { HttpError } from '../utils/http-error.js';
 
 const sqlErrorResponses: Record<number, { statusCode: number; code: string; message: string }> = {
-  // Códigos definidos por los stored procedures de Auth y usuarios.
+  // Códigos definidos por los stored procedures de Auth, usuarios, catálogo, cupones, inventario y carrito.
   50101: { statusCode: 409, code: 'EMAIL_ALREADY_REGISTERED', message: 'El correo ya está registrado.' },
   50110: { statusCode: 400, code: 'INVALID_SESSION_DATA', message: 'Los datos de sesión no son válidos.' },
   50111: { statusCode: 401, code: 'INVALID_REFRESH_TOKEN', message: 'La sesión no es válida.' },
@@ -20,6 +20,34 @@ const sqlErrorResponses: Record<number, { statusCode: number; code: string; mess
   50126: { statusCode: 400, code: 'PROFILE_DATA_REQUIRED', message: 'Debes indicar al menos un dato del perfil.' },
   50127: { statusCode: 404, code: 'ADDRESS_NOT_FOUND', message: 'No se encontró la dirección activa.' },
   50128: { statusCode: 400, code: 'PASSWORD_REQUIRED', message: 'Debes indicar la nueva contraseña.' },
+  50130: { statusCode: 404, code: 'CATEGORY_NOT_FOUND', message: 'No se encontró la categoría o está inactiva.' },
+  50131: { statusCode: 404, code: 'PRODUCT_NOT_FOUND', message: 'No se encontró el producto.' },
+  50132: { statusCode: 404, code: 'VARIANT_NOT_FOUND', message: 'No se encontró la variante para ese producto.' },
+  50133: { statusCode: 404, code: 'PRODUCT_IMAGE_NOT_FOUND', message: 'No se encontró la imagen para ese producto.' },
+  50134: { statusCode: 409, code: 'SKU_ALREADY_EXISTS', message: 'Ya existe una variante con ese SKU.' },
+  50135: { statusCode: 409, code: 'CATALOG_NAME_ALREADY_EXISTS', message: 'Ya existe un elemento del catálogo con ese nombre.' },
+  50136: { statusCode: 400, code: 'INVALID_VARIANT_ATTRIBUTES', message: 'Uno o más atributos de la variante no son válidos.' },
+  50137: { statusCode: 400, code: 'CATALOG_DATA_REQUIRED', message: 'Debes indicar los datos requeridos del catálogo.' },
+  50138: { statusCode: 500, code: 'INVENTORY_MOVEMENT_TYPE_NOT_CONFIGURED', message: 'Faltan tipos de ajuste de inventario. Ejecuta nuevamente la semilla de la base de datos.' },
+  50139: { statusCode: 409, code: 'STOCK_BELOW_RESERVED', message: 'La existencia no puede quedar por debajo de las unidades reservadas.' },
+  50140: { statusCode: 404, code: 'COUPON_NOT_FOUND', message: 'El cupón no existe o no está disponible.' },
+  50141: { statusCode: 409, code: 'COUPON_CODE_ALREADY_EXISTS', message: 'Ya existe un cupón con ese código.' },
+  50142: { statusCode: 400, code: 'COUPON_EXPIRED_OR_NOT_STARTED', message: 'El cupón se encuentra fuera de su periodo de vigencia.' },
+  50143: { statusCode: 400, code: 'COUPON_USAGE_LIMIT_REACHED', message: 'El cupón ha alcanzado el límite máximo de usos disponibles.' },
+  50144: { statusCode: 400, code: 'COUPON_USER_LIMIT_REACHED', message: 'Has alcanzado el límite de usos permitidos para este cupón.' },
+  50145: { statusCode: 400, code: 'COUPON_MINIMUM_AMOUNT_NOT_MET', message: 'El monto de compra no alcanza el mínimo requerido para este cupón.' },
+  50146: { statusCode: 400, code: 'INVALID_COUPON_DATA', message: 'Los datos del cupón no son válidos.' },
+  50147: { statusCode: 400, code: 'COUPON_NOT_APPLICABLE', message: 'El cupón no aplica a los productos del carrito.' },
+  50150: { statusCode: 404, code: 'CART_NOT_FOUND', message: 'No se encontró el carrito.' },
+  50151: { statusCode: 404, code: 'CART_ITEM_NOT_FOUND', message: 'No se encontró el producto en el carrito.' },
+  50152: { statusCode: 409, code: 'INSUFFICIENT_STOCK', message: 'No hay existencia suficiente para esa cantidad.' },
+  50153: { statusCode: 409, code: 'VARIANT_NOT_AVAILABLE', message: 'La variante no está disponible para la venta.' },
+  50154: { statusCode: 400, code: 'INVALID_CART_QUANTITY', message: 'La cantidad del carrito no es válida.' },
+  50155: { statusCode: 400, code: 'GUEST_CART_TOKEN_INVALID', message: 'El token de carrito de invitado no es válido.' },
+  50156: { statusCode: 404, code: 'INVENTORY_VARIANT_NOT_FOUND', message: 'No se encontró la variante de inventario.' },
+  50157: { statusCode: 400, code: 'INVENTORY_ADJUSTMENT_REASON_REQUIRED', message: 'El motivo del ajuste es requerido.' },
+  50160: { statusCode: 409, code: 'CONFIGURATION_KEY_ALREADY_EXISTS', message: 'La clave de configuración ya existe.' },
+  50161: { statusCode: 404, code: 'CONFIGURATION_NOT_FOUND', message: 'La configuración solicitada no existe.' },
 };
 
 function getSqlErrorNumber(error: unknown): number | undefined {
@@ -72,8 +100,11 @@ export const errorMiddleware: ErrorRequestHandler = (error: unknown, _request, r
   const sqlResponse = sqlErrorNumber === undefined ? undefined : sqlErrorResponses[sqlErrorNumber];
 
   if (sqlResponse) {
+    const sqlMessage = typeof error === 'object' && error !== null && 'message' in error && typeof error.message === 'string'
+      ? error.message
+      : undefined;
     response.status(sqlResponse.statusCode).json({
-      error: { code: sqlResponse.code, message: sqlResponse.message },
+      error: { code: sqlResponse.code, message: sqlMessage || sqlResponse.message },
     });
     return;
   }

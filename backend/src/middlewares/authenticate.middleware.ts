@@ -27,6 +27,18 @@ export const authenticate: RequestHandler = (request, _response, next) => {
   }
 };
 
+export const optionalAuthenticate: RequestHandler = (request, _response, next) => {
+  const authorization = request.header('authorization');
+  if (authorization?.startsWith('Bearer ')) {
+    try {
+      request.auth = verifyAccessToken(authorization.slice('Bearer '.length).trim());
+    } catch {
+      // Si el token es inválido o expiró en una ruta opcional, se ignora y continúa como visitante.
+    }
+  }
+  next();
+};
+
 export function requireRole(...allowedRoles: UserRole[]): RequestHandler {
   // Restringe una ruta a los roles indicados después de autenticar.
   return (request, _response, next) => {

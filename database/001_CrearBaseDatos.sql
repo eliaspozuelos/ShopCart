@@ -196,6 +196,8 @@ CREATE TABLE dbo.VarianteAtributo (
 GO
 
 
+
+
 /* ============================================================
    004_Tablas_Cupones.sql
    Cupon  (CuponUso va en 006 porque depende de Pedido)
@@ -266,6 +268,7 @@ CREATE TABLE dbo.Carrito (
 );
 GO
 CREATE UNIQUE INDEX UX_Carrito_TokenInvitado ON dbo.Carrito (TokenInvitado) WHERE TokenInvitado IS NOT NULL;
+CREATE UNIQUE INDEX UX_Carrito_UsuarioActivo ON dbo.Carrito (IDUsuario) WHERE IDUsuario IS NOT NULL AND Estado = N'ACTIVO';
 CREATE INDEX IX_Carrito_Usuario ON dbo.Carrito (IDUsuario, Estado);
 CREATE INDEX IX_Carrito_Abandono ON dbo.Carrito (Estado, UltimaActividad);
 GO
