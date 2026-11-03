@@ -25,6 +25,7 @@ export class CatalogController {
     request: Request,
     response: Response,
   ): Promise<void> => {
+    console.info("Consultando categorías públicas.");
     response
       .status(200)
       .json({ data: await this.catalogService.listCategories() });
@@ -98,6 +99,12 @@ export class CatalogController {
     response: Response,
   ): Promise<void> => {
     const query = catalogListQuerySchema.parse(request.query);
+    console.info("Consultando productos públicos.", {
+      page: query.page,
+      pageSize: query.pageSize,
+      search: query.search,
+      categoryId: query.categoryId,
+    });
     response.status(200).json({
       data: await this.catalogService.listProducts(query),
     });
@@ -122,6 +129,7 @@ export class CatalogController {
   // Consulta el detalle público de un producto y sus variantes activas.
   getProduct = async (request: Request, response: Response): Promise<void> => {
     const { productId } = productIdParamsSchema.parse(request.params);
+    console.info("Consultando detalle de producto.", { productId });
     response.status(200).json({
       data: await this.catalogService.getProduct(productId),
     });

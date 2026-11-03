@@ -6,6 +6,9 @@
 USE ShopCart;
 GO
 
+SET QUOTED_IDENTIFIER ON;
+GO
+
 IF NOT EXISTS (
   SELECT 1
   FROM sys.indexes
@@ -20,6 +23,125 @@ END
 GO
 
 /* ------------------------------------------------------------
+   SP_Reservas_LiberarVencidas
+   Marca como vencidas las reservas cuyo plazo de 15 minutos
+   terminó. Puede ejecutarse manualmente o desde un job.
+   ------------------------------------------------------------ */
+CREATE OR ALTER PROCEDURE dbo.SP_Reservas_LiberarVencidas
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  UPDATE dbo.ReservaExistencia
+  SET Estado = N'VENCIDA'
+  WHERE Estado = N'ACTIVA'
+    AND ExpiraEn <= SYSUTCDATETIME();
+END;
+GO
+
+/* ------------------------------------------------------------
+   SP_Reservas_LiberarCarrito
+   Libera las reservas activas de un carrito que ya no las necesita.
+   ------------------------------------------------------------ */
+CREATE OR ALTER PROCEDURE dbo.SP_Reservas_LiberarCarrito
+  @IDCarrito INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  UPDATE dbo.ReservaExistencia
+  SET Estado = N'LIBERADA'
+  WHERE IDCarrito = @IDCarrito
+    AND Estado = N'ACTIVA';
+END;
+GO
+
+/* ------------------------------------------------------------
+   SP_Reservas_SincronizarCarrito
+   Reserva durante 15 minutos la cantidad actual de cada línea.
+   La variante se bloquea para que dos carritos no reserven la
+   última unidad simultáneamente.
+   ------------------------------------------------------------ */
+CREATE OR ALTER PROCEDURE dbo.SP_Reservas_SincronizarCarrito
+  @IDCarrito INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SET XACT_ABORT ON;
+
+  EXEC dbo.SP_Reservas_LiberarVencidas;
+
+  UPDATE r
+  SET Estado = N'LIBERADA'
+  FROM dbo.ReservaExistencia AS r
+  WHERE r.IDCarrito = @IDCarrito
+    AND r.Estado = N'ACTIVA'
+    AND NOT EXISTS (
+      SELECT 1
+      FROM dbo.CarritoDetalle AS d
+      WHERE d.IDCarrito = r.IDCarrito
+        AND d.IDVariante = r.IDVariante
+    );
+
+  DECLARE @IDVariante INT;
+  DECLARE @Cantidad INT;
+  DECLARE @ExistenciaFisica INT;
+  DECLARE @ReservadaPorOtros BIGINT;
+  DECLARE @IDReserva INT;
+
+  DECLARE lineas CURSOR LOCAL FAST_FORWARD FOR
+    SELECT IDVariante, Cantidad
+    FROM dbo.CarritoDetalle
+    WHERE IDCarrito = @IDCarrito;
+
+  OPEN lineas;
+  FETCH NEXT FROM lineas INTO @IDVariante, @Cantidad;
+  WHILE @@FETCH_STATUS = 0
+  BEGIN
+    SET @ExistenciaFisica = NULL;
+    SET @ReservadaPorOtros = 0;
+    SET @IDReserva = NULL;
+
+    SELECT @ExistenciaFisica = v.ExistenciaFisica
+    FROM dbo.Variante AS v WITH (UPDLOCK, HOLDLOCK)
+    WHERE v.IDVariante = @IDVariante;
+
+    IF @ExistenciaFisica IS NULL
+      THROW 50132, N'La variante no existe.', 1;
+
+    SELECT @ReservadaPorOtros = COALESCE(SUM(CONVERT(BIGINT, r.Cantidad)), 0)
+    FROM dbo.ReservaExistencia AS r WITH (UPDLOCK, HOLDLOCK)
+    WHERE r.IDVariante = @IDVariante
+      AND r.IDCarrito <> @IDCarrito
+      AND r.Estado = N'ACTIVA'
+      AND r.ExpiraEn > SYSUTCDATETIME();
+
+    IF CONVERT(BIGINT, @Cantidad) > CONVERT(BIGINT, @ExistenciaFisica) - @ReservadaPorOtros
+      THROW 50152, N'No hay existencia suficiente para esa cantidad.', 1;
+
+    SELECT @IDReserva = IDReserva
+    FROM dbo.ReservaExistencia WITH (UPDLOCK, HOLDLOCK)
+    WHERE IDCarrito = @IDCarrito
+      AND IDVariante = @IDVariante
+      AND Estado = N'ACTIVA';
+
+    IF @IDReserva IS NULL
+      INSERT dbo.ReservaExistencia (IDVariante, IDCarrito, Cantidad, ExpiraEn, Estado)
+      VALUES (@IDVariante, @IDCarrito, @Cantidad, DATEADD(MINUTE, 15, SYSUTCDATETIME()), N'ACTIVA');
+    ELSE
+      UPDATE dbo.ReservaExistencia
+      SET Cantidad = @Cantidad,
+          ExpiraEn = DATEADD(MINUTE, 15, SYSUTCDATETIME())
+      WHERE IDReserva = @IDReserva;
+
+    FETCH NEXT FROM lineas INTO @IDVariante, @Cantidad;
+  END;
+  CLOSE lineas;
+  DEALLOCATE lineas;
+END;
+GO
+
+/* ------------------------------------------------------------
    SP_Carrito_Devolver
    Devuelve encabezado, totales y lineas de un carrito activo.
    Recalcula precios vigentes y el descuento del cupon.
@@ -29,6 +151,8 @@ CREATE OR ALTER PROCEDURE dbo.SP_Carrito_Devolver
 AS
 BEGIN
   SET NOCOUNT ON;
+
+  EXEC dbo.SP_Reservas_LiberarVencidas;
 
   IF NOT EXISTS (SELECT 1 FROM dbo.Carrito WHERE IDCarrito = @IDCarrito AND Estado = N'ACTIVO')
     THROW 50150, N'No se encontro el carrito.', 1;
@@ -190,6 +314,8 @@ BEGIN
   IF @IDUsuario IS NOT NULL AND @IDCarritoInvitado IS NOT NULL
      AND (@IDCarritoUsuario IS NULL OR @IDCarritoUsuario <> @IDCarritoInvitado)
   BEGIN
+    EXEC dbo.SP_Reservas_LiberarCarrito @IDCarrito = @IDCarritoInvitado;
+
     IF @IDCarritoUsuario IS NULL
     BEGIN
       INSERT INTO dbo.Carrito (IDUsuario, Estado)
@@ -234,6 +360,8 @@ BEGIN
 
     DELETE FROM dbo.CarritoDetalle
     WHERE IDCarrito = @IDCarritoUsuario AND Cantidad <= 0;
+
+    EXEC dbo.SP_Reservas_SincronizarCarrito @IDCarrito = @IDCarritoUsuario;
 
     SET @IDCarrito = @IDCarritoUsuario;
     UPDATE dbo.Carrito
@@ -319,8 +447,6 @@ BEGIN
     THROW 50154, N'La cantidad debe ser mayor a 0.', 1;
 
   DECLARE @IDCarrito INT;
-  DECLARE @CantidadActual INT = 0;
-  DECLARE @Disponible INT;
   DECLARE @Activa BIT;
   DECLARE @ProductoActivo BIT;
 
@@ -335,11 +461,9 @@ BEGIN
 
     SELECT
       @Activa = v.Activa,
-      @ProductoActivo = p.Activo,
-      @Disponible = disp.ExistenciaDisponible
+      @ProductoActivo = p.Activo
     FROM dbo.Variante AS v WITH (UPDLOCK, HOLDLOCK)
     INNER JOIN dbo.Producto AS p ON p.IDProducto = v.IDProducto
-    CROSS APPLY dbo.FU_Inventario_ExistenciaDisponible(v.IDVariante) AS disp
     WHERE v.IDVariante = @IDVariante;
 
     IF @Activa IS NULL
@@ -347,13 +471,6 @@ BEGIN
 
     IF @Activa = 0 OR @ProductoActivo = 0
       THROW 50153, N'La variante no esta disponible para la venta.', 1;
-
-    SELECT @CantidadActual = Cantidad
-    FROM dbo.CarritoDetalle WITH (UPDLOCK, HOLDLOCK)
-    WHERE IDCarrito = @IDCarrito AND IDVariante = @IDVariante;
-
-    IF COALESCE(@CantidadActual, 0) + @Cantidad > @Disponible
-      THROW 50152, N'No hay existencia suficiente para esa cantidad.', 1;
 
     MERGE dbo.CarritoDetalle AS destino
     USING (SELECT @IDCarrito AS IDCarrito, @IDVariante AS IDVariante) AS origen
@@ -363,6 +480,8 @@ BEGIN
     WHEN NOT MATCHED THEN
       INSERT (IDCarrito, IDVariante, Cantidad)
       VALUES (origen.IDCarrito, origen.IDVariante, @Cantidad);
+
+    EXEC dbo.SP_Reservas_SincronizarCarrito @IDCarrito = @IDCarrito;
 
     UPDATE dbo.Carrito
     SET UltimaActividad = SYSUTCDATETIME()
@@ -398,7 +517,6 @@ BEGIN
 
   DECLARE @IDCarrito INT;
   DECLARE @IDVariante INT;
-  DECLARE @Disponible INT;
 
   BEGIN TRY
     BEGIN TRANSACTION;
@@ -416,15 +534,11 @@ BEGIN
     IF @IDVariante IS NULL
       THROW 50151, N'No se encontro el producto en el carrito.', 1;
 
-    SELECT @Disponible = ExistenciaDisponible
-    FROM dbo.FU_Inventario_ExistenciaDisponible(@IDVariante);
-
-    IF @Cantidad > @Disponible
-      THROW 50152, N'No hay existencia suficiente para esa cantidad.', 1;
-
     UPDATE dbo.CarritoDetalle
     SET Cantidad = @Cantidad
     WHERE IDCarritoDetalle = @IDCarritoDetalle AND IDCarrito = @IDCarrito;
+
+    EXEC dbo.SP_Reservas_SincronizarCarrito @IDCarrito = @IDCarrito;
 
     UPDATE dbo.Carrito
     SET UltimaActividad = SYSUTCDATETIME()
@@ -471,6 +585,8 @@ BEGIN
     IF @@ROWCOUNT = 0
       THROW 50151, N'No se encontro el producto en el carrito.', 1;
 
+    EXEC dbo.SP_Reservas_SincronizarCarrito @IDCarrito = @IDCarrito;
+
     UPDATE dbo.Carrito
     SET UltimaActividad = SYSUTCDATETIME()
     WHERE IDCarrito = @IDCarrito;
@@ -513,6 +629,19 @@ BEGIN
       @TokenInvitado = @TokenInvitado,
       @CrearSiNoExiste = 1,
       @IDCarrito = @IDCarrito OUTPUT;
+
+    IF EXISTS (
+      SELECT 1
+      FROM dbo.Carrito
+      WHERE IDCarrito = @IDCarrito
+        AND IDCupon IS NOT NULL
+        AND IDCupon <> (
+          SELECT IDCupon
+          FROM dbo.Cupon
+          WHERE Codigo = UPPER(LTRIM(RTRIM(@Codigo)))
+        )
+    )
+      THROW 50148, N'El carrito ya tiene un cupon aplicado.', 1;
 
     SELECT
       @Subtotal = COALESCE(SUM(ROUND(v.Precio * d.Cantidad, 2)), 0)
@@ -615,6 +744,7 @@ BEGIN
       @IDCarrito = @IDCarrito OUTPUT;
 
     DELETE FROM dbo.CarritoDetalle WHERE IDCarrito = @IDCarrito;
+    EXEC dbo.SP_Reservas_SincronizarCarrito @IDCarrito = @IDCarrito;
 
     UPDATE dbo.Carrito
     SET IDCupon = NULL, UltimaActividad = SYSUTCDATETIME()
@@ -630,4 +760,3 @@ BEGIN
   EXEC dbo.SP_Carrito_Devolver @IDCarrito = @IDCarrito;
 END;
 GO
-

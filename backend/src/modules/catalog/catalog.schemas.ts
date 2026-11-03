@@ -23,6 +23,15 @@ export const catalogListQuerySchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   categoryId: z.coerce.number().int().positive().optional(),
   search: z.string().trim().min(1).max(100).optional(),
+  minPrice: z.coerce.number().nonnegative().optional(),
+  maxPrice: z.coerce.number().nonnegative().optional(),
+  available: z.coerce.boolean().optional(),
+  sort: z.enum(['name_asc', 'name_desc', 'price_asc', 'price_desc']).default('name_asc'),
+}).refine((input) => input.minPrice === undefined
+  || input.maxPrice === undefined
+  || input.minPrice <= input.maxPrice, {
+  message: 'El precio mínimo no puede superar al precio máximo.',
+  path: ['minPrice'],
 });
 
 export const createCategorySchema = z.object({
@@ -50,6 +59,9 @@ export const saveVariantSchema = z.object({
   price: z.number().positive().max(999999999999.99),
   stock: z.number().int().min(0).max(2147483647).optional(),
   attributes: z.array(variantAttributeSchema).max(20).default([]),
+}).refine((input) => Number(input.price.toFixed(2)) === input.price, {
+  message: 'El precio no puede tener más de dos decimales.',
+  path: ['price'],
 });
 
 export const saveProductImageSchema = z.object({

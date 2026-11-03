@@ -13,14 +13,27 @@ export class CartController {
 
   // Devuelve el carrito actual del cliente o del visitante identificado por su token.
   get = async (request: Request, response: Response): Promise<void> => {
-    const cart = await this.cartService.getCart(this.getOwner(request));
+    const owner = this.getOwner(request);
+    const cart = await this.cartService.getCart(owner);
+    console.info("Carrito consultado correctamente.", {
+      userId: owner.userId,
+      hasGuestToken: Boolean(owner.guestToken),
+      itemCount: cart.items.length,
+    });
     response.status(200).json({ data: cart });
   };
 
   // Agrega una variante al carrito y devuelve el resumen actualizado.
   addItem = async (request: Request, response: Response): Promise<void> => {
     const input = addCartItemSchema.parse(request.body);
-    const cart = await this.cartService.addItem({ ...this.getOwner(request), ...input });
+    const owner = this.getOwner(request);
+    const cart = await this.cartService.addItem({ ...owner, ...input });
+    console.info("Producto agregado al carrito.", {
+      userId: owner.userId,
+      hasGuestToken: Boolean(owner.guestToken),
+      variantId: input.variantId,
+      quantity: input.quantity,
+    });
     response.status(200).json({
       message: 'Producto agregado al carrito.',
       data: cart,

@@ -24,6 +24,7 @@ export class UsersController {
     }
 
     const profile = await this.usersService.getMyProfile(userId);
+    console.info('Perfil consultado correctamente.', { userId });
     response.status(200).json({ 
       message: 'El perfil se obtuvo correctamente.',
       data: profile });
@@ -68,6 +69,7 @@ export class UsersController {
     }
 
     const address = await this.usersService.createMyAddress({ ...input, userId });
+    console.info('Dirección agregada correctamente.', { userId, alias: address.alias });
     response.status(201).json({ 
       message: 'La dirección se creó correctamente.',
       data: address });
@@ -136,7 +138,11 @@ export class UsersController {
       }
      
     );
-    //console.log('List Users Result:', result); // Log the result for debugging
+    console.info('Usuarios listados correctamente.', {
+      page: query.page,
+      pageSize: query.pageSize,
+      totalRecords: result.pagination.totalRecords,
+    });
   };
 
   //Cambiar el estado de un usuario administrado por un administrador autenticado.

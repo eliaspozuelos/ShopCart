@@ -88,6 +88,10 @@ export class CatalogRepository {
     pageSize: number;
     categoryId?: number | undefined;
     search?: string | undefined;
+    minPrice?: number | undefined;
+    maxPrice?: number | undefined;
+    available?: boolean | undefined;
+    sort?: string | undefined;
     includeInactive?: boolean | undefined;
     actorId?: number | undefined;
   }): Promise<ProductListResult> {
@@ -97,6 +101,10 @@ export class CatalogRepository {
       .input('TamanoPagina', sql.Int, input.pageSize)
       .input('IDCategoria', sql.Int, input.categoryId ?? null)
       .input('Buscar', sql.NVarChar(100), input.search ?? null)
+      .input('PrecioMinimo', sql.Decimal(18, 2), input.minPrice ?? null)
+      .input('PrecioMaximo', sql.Decimal(18, 2), input.maxPrice ?? null)
+      .input('SoloDisponibles', sql.Bit, input.available ?? null)
+      .input('OrdenarPor', sql.VarChar(20), input.sort ?? 'name_asc')
       .input('IncluirInactivos', sql.Bit, input.includeInactive ?? false)
       .input('IDUsuarioActor', sql.Int, input.actorId ?? null)
       .execute<[ProductCountRecord, ProductRecord]>('dbo.SP_Catalogo_ListarProductos');

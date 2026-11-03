@@ -7,6 +7,10 @@
 USE ShopCart;
 GO
 
+IF OBJECT_ID(N'dbo.Seq_NumeroPedido', N'SO') IS NULL
+    CREATE SEQUENCE dbo.Seq_NumeroPedido AS BIGINT START WITH 1 INCREMENT BY 1;
+GO
+
 /* ------------------------------------------------------------
    dbo.EstadoPedido
    Catalogo de estados posibles para un pedido.
@@ -44,6 +48,7 @@ CREATE TABLE dbo.Pedido (
     IDUsuario            INT NOT NULL,
     IDEstadoPedido       INT NOT NULL,
     LlaveIdempotencia    UNIQUEIDENTIFIER NULL,
+    IDCarritoIdempotencia INT NULL,
     DireccionSnapshot    NVARCHAR(600) NOT NULL,   -- direccion congelada al comprar
     CodigoCuponSnapshot  NVARCHAR(30) NULL,
     Subtotal             DECIMAL(18,2) NOT NULL,
@@ -55,6 +60,7 @@ CREATE TABLE dbo.Pedido (
     CONSTRAINT UQ_Pedido_Numero UNIQUE (NumeroPedido),
     CONSTRAINT FK_Pedido_Usuario FOREIGN KEY (IDUsuario) REFERENCES dbo.Usuario (IDUsuario),
     CONSTRAINT FK_Pedido_Estado FOREIGN KEY (IDEstadoPedido) REFERENCES dbo.EstadoPedido (IDEstadoPedido),
+    CONSTRAINT FK_Pedido_CarritoIdempotencia FOREIGN KEY (IDCarritoIdempotencia) REFERENCES dbo.Carrito (IDCarrito),
     CONSTRAINT CK_Pedido_Montos CHECK (
         Subtotal >= 0 AND Descuento >= 0 AND Descuento <= Subtotal
         AND Total = Subtotal - Descuento AND MontoIVA >= 0
@@ -63,6 +69,7 @@ CREATE TABLE dbo.Pedido (
 GO
 -- Misma llave del mismo cliente = misma solicitud: no se crea un segundo pedido
 CREATE UNIQUE INDEX UX_Pedido_Idempotencia ON dbo.Pedido (IDUsuario, LlaveIdempotencia) WHERE LlaveIdempotencia IS NOT NULL;
+CREATE INDEX IX_Pedido_CarritoIdempotencia ON dbo.Pedido (IDCarritoIdempotencia) WHERE IDCarritoIdempotencia IS NOT NULL;
 CREATE INDEX IX_Pedido_Usuario ON dbo.Pedido (IDUsuario, FechaCreacion DESC);
 CREATE INDEX IX_Pedido_Estado ON dbo.Pedido (IDEstadoPedido, FechaCreacion DESC);
 GO
@@ -139,7 +146,7 @@ CREATE TABLE dbo.Pago (
     CONSTRAINT CK_Pago_Monto CHECK (Monto >= 0),
     -- Los reembolsos acumulados nunca superan lo pagado
     CONSTRAINT CK_Pago_Reembolsado CHECK (MontoReembolsado >= 0 AND MontoReembolsado <= Monto),
-    CONSTRAINT CK_Pago_Estado CHECK (Estado IN (N'APROBADO', N'REEMBOLSO_PARCIAL', N'REEMBOLSADO'))
+    CONSTRAINT CK_Pago_Estado CHECK (Estado IN (N'PENDIENTE', N'APROBADO', N'REEMBOLSO_PARCIAL', N'REEMBOLSADO'))
 );
 GO
 

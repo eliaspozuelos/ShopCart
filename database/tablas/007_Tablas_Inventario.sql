@@ -65,4 +65,7 @@ CREATE TABLE dbo.ReservaExistencia (
 GO
 CREATE INDEX IX_Reserva_Variante ON dbo.ReservaExistencia (IDVariante, Estado, ExpiraEn);
 CREATE INDEX IX_Reserva_Carrito ON dbo.ReservaExistencia (IDCarrito, Estado);
+CREATE UNIQUE INDEX UX_Reserva_Carrito_Variante_Activa
+ON dbo.ReservaExistencia (IDCarrito, IDVariante)
+WHERE Estado = N'ACTIVA';
 GO

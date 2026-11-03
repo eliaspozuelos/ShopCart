@@ -18,13 +18,14 @@ IF NOT EXISTS (SELECT 1 FROM dbo.Rol WHERE Nombre =  N'Cliente')
   INSERT INTO dbo.Rol (Nombre) VALUES ( N'Cliente');
 
 IF OBJECT_ID(N'dbo.Configuracion', N'U') IS NULL
-  THROW 51005, N'Falta la tabla Configuracion. Ejecute primero el script de tablas.', 1;
+  THROW 51010, N'Falta la tabla Configuracion. Ejecute primero el script de tablas.', 1;
 
 MERGE dbo.Configuracion AS destino
 USING (VALUES
   (N'MONEDA', N'GTQ', N'Moneda en la que se expresan los montos.'),
   (N'SIMBOLO_MONEDA', N'Q', N'Simbolo visual de la moneda.'),
-  (N'TASA_IVA', N'0.12', N'Tasa de IVA incluida en los precios publicados.')
+  (N'TASA_IVA', N'0.12', N'Tasa de IVA incluida en los precios publicados.'),
+  (N'MINUTOS_CARRITO_ABANDONADO', N'60', N'Minutos sin actividad para considerar un carrito abandonado.')
 ) AS origen (Clave, Valor, Descripcion)
 ON destino.Clave = origen.Clave
 WHEN MATCHED THEN
@@ -42,7 +43,7 @@ DECLARE @AdminNombre NVARCHAR(100) = N'Administrador de prueba';
 
 IF OBJECT_ID(N'dbo.SP_Usuarios_CrearAdministradorInicial', N'P') IS NULL
 BEGIN
-  THROW 51002, N'No existe SP_Usuarios_CrearAdministradorInicial. Ejecute primero los Stored Procedures del backend.', 1;
+  THROW 51011, N'No existe SP_Usuarios_CrearAdministradorInicial. Ejecute primero los Stored Procedures del backend.', 1;
 END
 
 IF NOT EXISTS (
@@ -74,14 +75,14 @@ IF OBJECT_ID(N'dbo.Categoria', N'U') IS NULL
    OR OBJECT_ID(N'dbo.Variante', N'U') IS NULL
    OR OBJECT_ID(N'dbo.VarianteAtributo', N'U') IS NULL
 BEGIN
-  THROW 51003, N'Faltan tablas del catalogo. Ejecute primero los scripts de tablas.', 1;
+  THROW 51012, N'Faltan tablas del catalogo. Ejecute primero los scripts de tablas.', 1;
 END
 GO
 
 IF OBJECT_ID(N'dbo.TipoMovimiento', N'U') IS NULL
    OR OBJECT_ID(N'dbo.MovimientoInventario', N'U') IS NULL
 BEGIN
-  THROW 51004, N'Faltan las tablas de inventario. Ejecute primero el script de tablas.', 1;
+  THROW 51013, N'Faltan las tablas de inventario. Ejecute primero el script de tablas.', 1;
 END
 GO
 

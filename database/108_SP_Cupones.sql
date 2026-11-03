@@ -400,8 +400,11 @@ BEGIN
   IF @IDCupon IS NULL OR @Activo = 0
     THROW 50140, N'El cupon no existe o no esta disponible.', 1;
 
-  IF @FechaActual < @VigenteDesde OR @FechaActual > @VigenteHasta
-    THROW 50142, N'El cupon se encuentra fuera de su periodo de vigencia.', 1;
+  IF @FechaActual < @VigenteDesde
+    THROW 50149, N'El cupon aun no inicia su periodo de vigencia.', 1;
+
+  IF @FechaActual > @VigenteHasta
+    THROW 50142, N'El cupon esta vencido.', 1;
 
   IF @UsosActuales >= @LimiteUsosTotal
     THROW 50143, N'El cupon ha alcanzado el limite maximo de usos disponibles.', 1;
@@ -446,4 +449,3 @@ BEGIN
   WHERE c.IDCupon = @IDCupon;
 END;
 GO
-

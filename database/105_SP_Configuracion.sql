@@ -32,7 +32,8 @@ BEGIN
   )
     THROW 50121, N'Solo un Administrador activo puede consultar la configuracion.', 1;
 
-  SELECT Clave, Valor, Descripcion
+  SELECT Clave, Valor, Descripcion, IDUsuarioCreacion, FechaCreacion,
+         IDUsuarioModificacion, FechaModificacion
   FROM dbo.Configuracion
   ORDER BY Clave;
 END;
@@ -65,10 +66,11 @@ BEGIN
   IF EXISTS (SELECT 1 FROM dbo.Configuracion WHERE Clave = LTRIM(RTRIM(@Clave)))
     THROW 50160, N'La clave de configuracion ya existe.', 1;
 
-  INSERT INTO dbo.Configuracion (Clave, Valor, Descripcion)
-  VALUES (LTRIM(RTRIM(@Clave)), LTRIM(RTRIM(@Valor)), NULLIF(LTRIM(RTRIM(@Descripcion)), N''));
+  INSERT INTO dbo.Configuracion (Clave, Valor, Descripcion, IDUsuarioCreacion)
+  VALUES (LTRIM(RTRIM(@Clave)), LTRIM(RTRIM(@Valor)), NULLIF(LTRIM(RTRIM(@Descripcion)), N''), @IDUsuarioActor);
 
-  SELECT Clave, Valor, Descripcion
+  SELECT Clave, Valor, Descripcion, IDUsuarioCreacion, FechaCreacion,
+         IDUsuarioModificacion, FechaModificacion
   FROM dbo.Configuracion
   WHERE Clave = LTRIM(RTRIM(@Clave));
 END;
@@ -106,13 +108,14 @@ BEGIN
   SET Valor = LTRIM(RTRIM(@Valor)),
       Descripcion = CASE WHEN @ActualizarDescripcion = 1
         THEN NULLIF(LTRIM(RTRIM(@Descripcion)), N'')
-        ELSE Descripcion
-      END
+        ELSE Descripcion END,
+      IDUsuarioModificacion = @IDUsuarioActor,
+      FechaModificacion = SYSUTCDATETIME()
   WHERE Clave = LTRIM(RTRIM(@Clave));
 
-  SELECT Clave, Valor, Descripcion
+  SELECT Clave, Valor, Descripcion, IDUsuarioCreacion, FechaCreacion,
+         IDUsuarioModificacion, FechaModificacion
   FROM dbo.Configuracion
   WHERE Clave = LTRIM(RTRIM(@Clave));
 END;
 GO
-

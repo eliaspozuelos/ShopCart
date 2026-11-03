@@ -35,6 +35,15 @@ export class AuthRepository {
     return result.recordset[0];
   }
 
+  async findUserById(userId: number): Promise<PublicUserRecord | undefined> {
+    const database = await getDatabase();
+    const result = await database.request()
+      .input('IDUsuario', sql.Int, userId)
+      .execute<PublicUserRecord>('dbo.SP_Auth_ObtenerUsuarioPorID');
+
+    return result.recordset[0];
+  }
+
   async findCredentialsById(userId: number): Promise<Pick<AuthUserRecord, 'IDUsuario' | 'ContrasenaHash' | 'Activo'> | undefined> {
     const database = await getDatabase();
     const result = await database.request()

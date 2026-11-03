@@ -225,6 +225,10 @@ CREATE OR ALTER PROCEDURE dbo.SP_Catalogo_ListarProductos
   @TamanoPagina INT = 20,
   @IDCategoria INT = NULL,
   @Buscar NVARCHAR(100) = NULL,
+  @PrecioMinimo DECIMAL(18,2) = NULL,
+  @PrecioMaximo DECIMAL(18,2) = NULL,
+  @SoloDisponibles BIT = NULL,
+  @OrdenarPor VARCHAR(20) = 'name_asc',
   @IncluirInactivos BIT = 0,
   @IDUsuarioActor INT = NULL
 AS
@@ -241,6 +245,8 @@ BEGIN
   IF @Pagina IS NULL OR @Pagina < 1 SET @Pagina = 1;
   IF @TamanoPagina IS NULL OR @TamanoPagina < 1 SET @TamanoPagina = 20;
   IF @TamanoPagina > 100 SET @TamanoPagina = 100;
+  IF @OrdenarPor NOT IN ('name_asc', 'name_desc', 'price_asc', 'price_desc')
+    SET @OrdenarPor = 'name_asc';
 
   SELECT COUNT(*) AS TotalRegistros
   FROM dbo.Producto AS p
@@ -248,7 +254,16 @@ BEGIN
   WHERE (@IncluirInactivos = 1 OR (p.Activo = 1 AND c.Activa = 1))
     AND (@IDCategoria IS NULL OR p.IDCategoria = @IDCategoria)
     AND (@Buscar IS NULL OR CHARINDEX(@Buscar, p.Nombre) > 0
-         OR CHARINDEX(@Buscar, COALESCE(p.Descripcion, N'')) > 0);
+         OR CHARINDEX(@Buscar, COALESCE(p.Descripcion, N'')) > 0)
+    AND (@PrecioMinimo IS NULL OR EXISTS (
+      SELECT 1 FROM dbo.Variante v WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
+        AND v.Precio >= @PrecioMinimo))
+    AND (@PrecioMaximo IS NULL OR EXISTS (
+      SELECT 1 FROM dbo.Variante v WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
+        AND v.Precio <= @PrecioMaximo))
+    AND (@SoloDisponibles IS NULL OR @SoloDisponibles = 0 OR EXISTS (
+      SELECT 1 FROM dbo.Variante v WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
+        AND v.ExistenciaFisica > 0));
 
   SELECT p.IDProducto, p.Nombre, p.Descripcion, p.Activo,
          c.IDCategoria, c.Nombre AS Categoria,
@@ -277,7 +292,15 @@ BEGIN
     AND (@IDCategoria IS NULL OR p.IDCategoria = @IDCategoria)
     AND (@Buscar IS NULL OR CHARINDEX(@Buscar, p.Nombre) > 0
          OR CHARINDEX(@Buscar, COALESCE(p.Descripcion, N'')) > 0)
-  ORDER BY p.Nombre, p.IDProducto
+    AND (@PrecioMinimo IS NULL OR precios.PrecioMaximo >= @PrecioMinimo)
+    AND (@PrecioMaximo IS NULL OR precios.PrecioMinimo <= @PrecioMaximo)
+    AND (@SoloDisponibles IS NULL OR @SoloDisponibles = 0 OR existencias.ExistenciaTotal > 0)
+  ORDER BY
+    CASE WHEN @OrdenarPor = 'name_asc' THEN p.Nombre END ASC,
+    CASE WHEN @OrdenarPor = 'name_desc' THEN p.Nombre END DESC,
+    CASE WHEN @OrdenarPor = 'price_asc' THEN precios.PrecioMinimo END ASC,
+    CASE WHEN @OrdenarPor = 'price_desc' THEN precios.PrecioMinimo END DESC,
+    p.IDProducto
   OFFSET (@Pagina - 1) * @TamanoPagina ROWS
   FETCH NEXT @TamanoPagina ROWS ONLY;
 END;
@@ -767,6 +790,8 @@ BEGIN
   DECLARE @EsNueva BIT = CASE WHEN @IDVariante IS NULL THEN 1 ELSE 0 END;
   DECLARE @ExistenciaAnterior INT = 0;
   DECLARE @ExistenciaResultante INT;
+  DECLARE @ValorAnterior NVARCHAR(MAX);
+  DECLARE @ValorNuevo NVARCHAR(MAX);
   BEGIN TRY
     BEGIN TRANSACTION;
 
@@ -785,6 +810,13 @@ BEGIN
 
       IF @@ROWCOUNT = 0
         THROW 50132, N'La variante no existe para este producto.', 1;
+
+      SELECT @ValorAnterior = (
+        SELECT SKU, Precio, ExistenciaFisica, Activa
+        FROM dbo.Variante
+        WHERE IDVariante = @IDVariante AND IDProducto = @IDProducto
+        FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+      );
 
       UPDATE dbo.Variante
       SET SKU = @SKU, Precio = @Precio
@@ -808,11 +840,18 @@ BEGIN
     FROM OPENJSON(@AtributosJson)
       WITH (AttributeId INT '$.attributeId', Value NVARCHAR(100) '$.value') AS input;
 
-    INSERT INTO dbo.Bitacora (IDUsuario, Modulo, Entidad, IDEntidad, Accion, ValorNuevo)
+    SELECT @ValorNuevo = (
+      SELECT SKU, Precio, ExistenciaFisica, Activa
+      FROM dbo.Variante
+      WHERE IDVariante = @IDVariante
+      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+    );
+
+    INSERT INTO dbo.Bitacora
+      (IDUsuario, Modulo, Entidad, IDEntidad, Accion, ValorAnterior, ValorNuevo)
     VALUES (@IDUsuarioActor, N'CATALOGO', N'Variante', @IDVariante,
             CASE WHEN @EsNueva = 1 THEN N'CREAR' ELSE N'MODIFICAR' END,
-            (SELECT @SKU AS SKU, @Precio AS Precio, @ExistenciaResultante AS ExistenciaFisica
-             FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
+            @ValorAnterior, @ValorNuevo);
 
     COMMIT TRANSACTION;
 
@@ -955,4 +994,3 @@ BEGIN
   END CATCH
 END;
 GO
-

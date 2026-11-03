@@ -1,6 +1,6 @@
 ﻿/* ============================================================
    110_SP_Bitacora.sql
-   Consulta administrativa de auditorÃ­a.
+   Consulta administrativa de auditoría.
    ============================================================ */
 USE ShopCart;
 GO
@@ -16,4 +16,3 @@ BEGIN
   OFFSET (@Pagina-1)*@TamanoPagina ROWS FETCH NEXT @TamanoPagina ROWS ONLY;
 END;
 GO
-

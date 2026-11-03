@@ -98,6 +98,8 @@ BEGIN
   DECLARE @Diferencia INT;
   DECLARE @IDTipoMovimiento INT;
   DECLARE @ExistenciaReservada BIGINT;
+  DECLARE @ValorAnterior NVARCHAR(MAX);
+  DECLARE @ValorNuevo NVARCHAR(MAX);
 
   BEGIN TRY
     BEGIN TRANSACTION;
@@ -108,6 +110,13 @@ BEGIN
 
     IF @ExistenciaAnterior IS NULL
       THROW 50156, N'La variante de inventario no existe.', 1;
+
+    SELECT @ValorAnterior = (
+      SELECT IDVariante, SKU, ExistenciaFisica
+      FROM dbo.Variante
+      WHERE IDVariante = @IDVariante
+      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+    );
 
     SELECT @ExistenciaReservada = COALESCE(SUM(CONVERT(BIGINT, r.Cantidad)), 0)
     FROM dbo.ReservaExistencia AS r WITH (UPDLOCK, HOLDLOCK)
@@ -140,6 +149,19 @@ BEGIN
         (@IDVariante, @IDTipoMovimiento, ABS(@Diferencia), @NuevaExistencia,
          @IDUsuarioActor, LTRIM(RTRIM(@Motivo)));
     END
+
+    SELECT @ValorNuevo = (
+      SELECT IDVariante, SKU, ExistenciaFisica
+      FROM dbo.Variante
+      WHERE IDVariante = @IDVariante
+      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+    );
+
+    INSERT INTO dbo.Bitacora
+      (IDUsuario, Modulo, Entidad, IDEntidad, Accion, ValorAnterior, ValorNuevo)
+    VALUES
+      (@IDUsuarioActor, N'INVENTARIO', N'Variante', @IDVariante, N'MODIFICAR',
+       @ValorAnterior, @ValorNuevo);
 
     COMMIT TRANSACTION;
   END TRY
@@ -202,4 +224,3 @@ BEGIN
   FETCH NEXT @TamanoPagina ROWS ONLY;
 END;
 GO
-

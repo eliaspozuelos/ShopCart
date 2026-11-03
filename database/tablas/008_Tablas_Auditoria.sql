@@ -39,9 +39,15 @@ GO
    Parametros configurables del sistema.
    ------------------------------------------------------------ */
 CREATE TABLE dbo.Configuracion (
-    Clave        NVARCHAR(50) NOT NULL,
-    Valor        NVARCHAR(100) NOT NULL,
-    Descripcion  NVARCHAR(200) NULL,
+    Clave                NVARCHAR(50) NOT NULL,
+    Valor                NVARCHAR(100) NOT NULL,
+    Descripcion          NVARCHAR(200) NULL,
+    IDUsuarioCreacion    INT NULL,
+    FechaCreacion        DATETIME2(0) NOT NULL CONSTRAINT DF_Configuracion_FechaCreacion DEFAULT SYSUTCDATETIME(),
+    IDUsuarioModificacion INT NULL,
+    FechaModificacion    DATETIME2(0) NULL,
     CONSTRAINT PK_Configuracion PRIMARY KEY (Clave)
+    ,CONSTRAINT FK_Configuracion_UsuarioCreacion FOREIGN KEY (IDUsuarioCreacion) REFERENCES dbo.Usuario (IDUsuario)
+    ,CONSTRAINT FK_Configuracion_UsuarioModificacion FOREIGN KEY (IDUsuarioModificacion) REFERENCES dbo.Usuario (IDUsuario)
 );
 GO

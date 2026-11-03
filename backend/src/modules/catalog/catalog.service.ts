@@ -48,6 +48,10 @@ export class CatalogService {
     pageSize: number;
     categoryId?: number | undefined;
     search?: string | undefined;
+    minPrice?: number | undefined;
+    maxPrice?: number | undefined;
+    available?: boolean | undefined;
+    sort?: 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc' | undefined;
     includeInactive?: boolean | undefined;
     actorId?: number | undefined;
   }) {
