@@ -1,0 +1,389 @@
+.order-list {
+  display: grid;
+}
+
+.order-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 190px) minmax(240px, 1fr) auto auto;
+  align-items: center;
+  gap: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 10px;
+}
+
+.order-row div {
+  display: grid;
+}
+
+.order-row span,
+.order-line .muted {
+  color: var(--muted);
+}
+
+.tracker {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  margin: 0 0 28px;
+  padding: 22px 8px 16px;
+  list-style: none;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow-x: auto;
+}
+
+.tracker li {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-width: 88px;
+  text-align: center;
+  color: #8d8d8d;
+  font-size: 13px;
+}
+
+.tracker-icon {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #c5c5c5;
+  z-index: 1;
+}
+
+.tracker li.is-done .tracker-icon {
+  background: #1fa971;
+}
+
+.tracker li.is-done .tracker-label {
+  color: #1c1c1c;
+  font-weight: 600;
+}
+
+.tracker-icon svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: white;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tracker-line {
+  position: absolute;
+  top: 29px;
+  left: calc(50% + 40px);
+  width: calc(100% - 80px);
+  height: 6px;
+  background: radial-gradient(circle, #c5c5c5 2.2px, transparent 2.4px) left center / 14px 6px repeat-x;
+}
+
+.tracker li.is-done:not(.is-current) .tracker-line {
+  background: #1fa971;
+  border-radius: 99px;
+}
+
+.tracker-compact {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+}
+
+.tracker-compact li {
+  min-width: 0;
+}
+
+.tracker-compact .tracker-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.tracker-compact .tracker-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.tracker-compact .tracker-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.tracker-compact .tracker-line {
+  top: 15px;
+  left: calc(50% + 22px);
+  width: calc(100% - 44px);
+  height: 4px;
+}
+
+.order-line {
+  grid-template-columns: 1fr auto;
+}
+
+.order-line .outlined-field {
+  grid-column: 1 / -1;
+}
+
+.qty-return {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.address-block {
+  display: grid;
+}
+
+.status-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.return-form {
+  margin-top: 22px;
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+
+.account-hello {
+  font-size: 34px;
+  letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+
+.account-kicker {
+  color: #555;
+  font-size: 18px;
+}
+
+.account-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 28px;
+}
+
+.account-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 104px;
+  padding: 18px 16px;
+  border: 1px solid #e3e3e3;
+  border-radius: 6px;
+  background: white;
+  text-align: left;
+  color: inherit;
+}
+
+.account-card:hover {
+  border-color: var(--brand);
+  box-shadow: var(--shadow);
+}
+
+.account-card strong,
+.account-card span span {
+  display: block;
+}
+
+.account-card span span {
+  margin-top: 4px;
+  color: #777;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.account-card svg {
+  width: 46px;
+  height: 46px;
+  flex: none;
+  fill: var(--brand);
+  color: var(--brand);
+}
+
+.account-card-wide {
+  grid-column: 1 / -1;
+}
+
+.account-form {
+  max-width: 520px;
+  margin-top: 18px;
+  display: grid;
+  gap: 14px;
+}
+
+.account-page .panel {
+  margin-top: 18px;
+    box-shadow: var(--shadow);
+}
+
+.account-page .split {
+  margin-bottom: 22px;
+}
+
+.address-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.address-list article {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 148px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  background: #fafafa;
+}
+
+.address-list article strong {
+  margin-bottom: 4px;
+}
+
+.address-list article p {
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.address-list article .text-button {
+  margin-top: auto;
+  padding-top: 12px;
+}
+
+.address-empty {
+  grid-column: 1 / -1;
+}
+
+.address-form {
+  display: grid;
+  gap: 16px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.address-form h3 {
+  margin: 0;
+}
+
+.address-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 14px;
+  padding-top: 8px;
+}
+
+.address-fields .wide {
+  grid-column: 1 / -1;
+}
+
+.address-form .outlined-field {
+  margin-top: 0;
+}
+
+.address-form .outlined-field > label {
+  top: 0;
+  font-size: 12px;
+}
+
+.address-form .inline-actions {
+  justify-content: flex-start;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+  padding: 32px 16px;
+  background: #f4f7f8;
+}
+
+.auth-brand {
+  margin: 0;
+  color: var(--brand);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.auth-back {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.auth-shell .auth-card {
+  width: min(440px, 100%);
+}
+
+.auth-card {
+  display: grid;
+  gap: 14px;
+  padding: 28px 22px;
+    box-shadow: var(--shadow);
+}
+
+.auth-card h1  {
+  display: grid;
+  gap: 14px;
+  font-size: 20px;
+    font-weight: 500;
+    text-align: center;
+    letter-spacing: 0;
+    margin-bottom: 8px;
+}
+
+.auth-card.signup {
+  gap: 12px;
+  padding: 28px 22px;
+  box-shadow: var(--shadow);
+}
+
+.auth-card.signup h1 {
+  font-size: 20px;
+  font-weight: 500;
+  text-align: center;
+  letter-spacing: 0;
+  margin-bottom: 8px;
+}
+
+.signup .btn {
+  width: 100%;
+  margin-top: 6px;
+}
+
+.signup-login {
+  text-align: center;
+}
+
+@media (max-width: 1000px) {
+  .account-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .order-row,
+  .address-fields {
+    grid-template-columns: 1fr;
+  }
+}
