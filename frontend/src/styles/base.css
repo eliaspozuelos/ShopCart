@@ -344,14 +344,27 @@ p {
 }
 
 .spinner {
-  width: 60px;
-  height: 60px;
+  position: relative;
+    display: inline-grid;
+    place-items: center;
+    width: 120px;
+    height: 120px;
+  }
+  
+  .spinner-ring {
+    position: absolute;
+    inset: 0;
   border-radius: 50%;
   border: 3px solid #f0f0f0;
   border-top-color: var(--brand);
   animation: spin 0.8s linear infinite;
 }
 
+.spinner img {
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+}
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -473,7 +486,7 @@ p {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .spinner {
+  .spinner-ring {
     animation: none;
   }
 }

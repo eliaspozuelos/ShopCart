@@ -1,0 +1,309 @@
+.page-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-shell main {
+  flex: 1;
+}
+
+.topbar {
+  border-bottom: 1px solid var(--line);
+  color: #9a9a9a;
+  font-size: 13px;
+}
+
+.topbar-inner {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  padding: 10px 0;
+}
+
+.header-main {
+  padding: 18px 0;
+  background: var(--red); ;
+}
+
+.header-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 28px;
+  align-items: center;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--brand-soft);
+}
+
+.logo-mark {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.search {
+  display: grid;
+  grid-template-columns: 180px 1fr 52px;
+  align-items: center;
+  border: 1px solid #e6e6e6;
+  border-radius: 999px;
+  overflow: hidden;
+  background: white;
+  min-height: 48px;
+}
+
+.search select,
+.search input {
+  border: 0;
+  background: transparent;
+  padding: 0 16px;
+  outline: none;
+  height: 48px;
+}
+
+.search select {
+  border-right: 1px solid #ededed;
+}
+
+.search button {
+  height: 48px;
+  border: 0;
+  background: transparent;
+  color: #444;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+
+}
+
+.icon-button {
+  position: relative;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 8px;
+  color: var(--soft);
+}
+
+.icon-button em {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 99px;
+  background: var(--soft);
+  color: var(--red);
+  font-style: normal;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.account {
+  position: relative;
+}
+
+/* menu desplegable */
+.account-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 20;
+  min-width: 180px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  padding: 8px;
+  display: grid;
+}
+
+.account-menu a,
+.account-menu button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 10px 12px;
+  border-radius: 8px;
+}
+
+.account-menu a:hover,
+.account-menu button:hover {
+  background: var(--soft);
+}
+
+.main-nav {
+  background: var(--nav);
+}
+
+.nav-inner {
+  display: flex;
+  align-items: center;
+  min-height: 54px;
+}
+
+.nav-toggle {
+  display: none;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 12px 0;
+}
+
+.nav-links {
+  display: flex;
+  gap: 26px;
+}
+
+.nav-links a {
+  color: #555;
+  font-weight: 500;
+}
+
+.nav-links a.active {
+  color: var(--brand);
+}
+
+.site-footer {
+  background: #043352;
+  color: #d5d5d5;
+  margin-top: auto;
+}
+
+.footer-grid {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 24px;
+  padding: 42px 0;
+}
+
+.footer-logo {
+  color: white;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.footer-grid a,
+.footer-grid p {
+  display: block;
+  color: #bdbdbd;
+  margin-top: 8px;
+}
+
+.footer-grid h2 {
+  color: white;
+  font-size: 16px;
+}
+
+.toast-stack {
+  position: fixed;
+  right: 16px;
+  top: 18px;
+  z-index: 50;
+  display: grid;
+  gap: 8px;
+}
+
+.toast {
+  margin: 0;
+  background: #222;
+  color: white;
+  border-radius: 12px;
+  padding: 12px 14px;
+  max-width: 320px;
+}
+
+.toast-error {
+  background: #9d1c1c;
+}
+
+@media (max-width: 1000px) {
+  .footer-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .header-row {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "logo actions"
+      "search search";
+    gap: 14px 12px;
+  }
+
+  .logo {
+    grid-area: logo;
+    font-size: 26px;
+  }
+
+  .logo-mark {
+    width: 52px;
+    height: 52px;
+  }
+
+  .header-actions {
+    grid-area: actions;
+  }
+
+  .search {
+    grid-area: search;
+    grid-template-columns: 1fr 46px;
+  }
+
+  .search select {
+    display: none;
+  }
+
+  .topbar-inner {
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .icon-button span {
+    display: none;
+  }
+
+  .nav-inner {
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+  }
+
+  .nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    width: 100%;
+    padding: 14px 0;
+  }
+
+  .nav-links {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    width: 100%;
+    padding-bottom: 8px;
+  }
+
+  .nav-links a {
+    display: block;
+    padding: 12px 0;
+    border-top: 1px solid #e4eef3;
+  }
+
+  .nav-open .nav-links {
+    display: flex;
+  }
+}

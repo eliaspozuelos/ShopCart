@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react'
 
 export function Spinner() {
-  return <img src="../logo1.svg" alt="Cargando" className="spinner" role="status" aria-label="Cargando" />
+  return (
+    <span className="spinner" role="status" aria-label="Cargando">
+      <span className="spinner-ring" />
+      <img src="/logo1.svg" alt="" />
+    </span>
+  )
 }
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {

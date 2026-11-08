@@ -1,0 +1,287 @@
+.cart-layout,
+.checkout-layout,
+.split {
+  grid-template-columns: 1.4fr 0.8fr;
+  align-items: start;
+}
+
+.cart-line,
+.order-line,
+.order-row {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.line-media {
+  width: 92px;
+  height: 92px;
+}
+
+.summary p,
+.order-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.summary .total {
+  font-size: 18px;
+}
+
+.coupon-note {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.coupon-form {
+  grid-template-columns: 1fr auto;
+}
+
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 0;
+}
+
+.choice small,
+.choice strong {
+  display: block;
+}
+
+.choice small {
+  color: var(--muted);
+}
+
+.drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.drawer-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.drawer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  width: min(420px, 100%);
+  background: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer header,
+.drawer footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 20px;
+}
+
+.drawer header {
+  border-bottom: 1px solid var(--line);
+}
+
+.drawer header h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.drawer header button {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+
+.drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0 20px;
+}
+
+.drawer li {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.drawer li img,
+.drawer .image-fallback {
+  width: 72px;
+  height: 72px;
+  border-radius: 8px;
+}
+
+.drawer li > div {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.drawer-line-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.drawer .qty button,
+.drawer .qty span {
+  width: 28px;
+  height: 28px;
+}
+
+.drawer-remove,
+.icon-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  color: #9d1c1c;
+}
+
+.drawer-remove:disabled,
+.icon-action:disabled {
+  opacity: 0.4;
+}
+
+.qty button svg,
+.drawer-remove svg,
+.icon-action svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.drawer footer {
+  display: grid;
+  border-top: 1px solid var(--line);
+}
+
+.drawer footer p {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+
+.drawer-subtotal strong {
+  color: var(--red);
+  font-size: 18px;
+}
+
+.drawer-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.drawer .drawer-view,
+.drawer .drawer-shop {
+  background: #2c3136;
+  color: white;
+}
+
+.drawer .drawer-view:hover,
+.drawer .drawer-shop:hover {
+  background: #1c2024;
+}
+
+.drawer .drawer-pay {
+  background: var(--red);
+  color: white;
+}
+
+.drawer .drawer-pay:hover {
+  background: var(--red-dark);
+}
+
+.drawer .drawer-view,
+.drawer .drawer-pay,
+.drawer .drawer-shop {
+  border-radius: 4px;
+}
+
+.drawer-empty {
+  flex: 1;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  padding: 32px 28px 40px;
+  text-align: center;
+}
+
+.drawer-empty svg {
+  width: 78px;
+  height: 78px;
+  margin-bottom: 14px;
+  fill: none;
+  stroke: #b5b5b5;
+  stroke-width: 1.4;
+}
+
+.drawer-empty p {
+  margin: 0;
+  color: #4d4d4d;
+  font-size: 16px;
+}
+
+.drawer-empty .muted {
+  color: #8a8a8a;
+}
+
+.drawer-empty .drawer-shop {
+  width: min(280px, 100%);
+  margin-top: 18px;
+}
+
+@media (max-width: 1000px) {
+  .cart-layout,
+  .checkout-layout,
+  .split {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .cart-line {
+    grid-template-columns: 72px 1fr;
+  }
+
+  .cart-line strong {
+    grid-column: 2;
+  }
+}

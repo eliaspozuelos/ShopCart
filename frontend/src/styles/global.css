@@ -2,3 +2,6 @@
 @import './base.css';
 @import './account.css';
 
+@import './layout.css';
+@import './store.css';
+@import './cart.css';

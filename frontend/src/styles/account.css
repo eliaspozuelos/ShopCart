@@ -209,11 +209,13 @@
 }
 
 .account-card svg {
-  width: 46px;
-  height: 46px;
+  width: 42px;
+  height: 42px;
   flex: none;
-  fill: var(--brand);
+  fill: none;
+  stroke: var(--brand);
   color: var(--brand);
+  stroke-width: 1.75;
 }
 
 .account-card-wide {
