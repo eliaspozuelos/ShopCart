@@ -37,6 +37,7 @@ export class InventoryRepository {
   async listMovements(input: {
     actorId: number;
     variantId?: number | undefined;
+    type?: string | undefined;
     page: number;
     pageSize: number;
   }): Promise<{ total: number; movements: InventoryMovementRecord[] }> {
@@ -44,6 +45,7 @@ export class InventoryRepository {
     const result = await database.request()
       .input('IDUsuarioActor', sql.Int, input.actorId)
       .input('IDVariante', sql.Int, input.variantId ?? null)
+      .input('Tipo', sql.NVarChar(30), input.type ?? null)
       .input('Pagina', sql.Int, input.page)
       .input('TamanoPagina', sql.Int, input.pageSize)
       .execute<[InventoryMovementCountRecord, InventoryMovementRecord]>('dbo.SP_Inventario_ListarMovimientos');

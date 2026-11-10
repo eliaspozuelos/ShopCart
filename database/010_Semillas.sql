@@ -25,7 +25,8 @@ USING (VALUES
   (N'MONEDA', N'GTQ', N'Moneda en la que se expresan los montos.'),
   (N'SIMBOLO_MONEDA', N'Q', N'Simbolo visual de la moneda.'),
   (N'TASA_IVA', N'0.12', N'Tasa de IVA incluida en los precios publicados.'),
-  (N'MINUTOS_CARRITO_ABANDONADO', N'60', N'Minutos sin actividad para considerar un carrito abandonado.')
+  (N'MINUTOS_CARRITO_ABANDONADO', N'60', N'Minutos sin actividad para considerar un carrito abandonado.'),
+  (N'EXISTENCIA_BAJA', N'5', N'Una variante activa con esta existencia o menos se muestra como baja en reportes.')
 ) AS origen (Clave, Valor, Descripcion)
 ON destino.Clave = origen.Clave
 WHEN MATCHED THEN

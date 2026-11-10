@@ -12,3 +12,12 @@ export const createReturnSchema = z.object({
     amount: z.number().nonnegative(),
   })).min(1),
 });
+
+export const returnIdParamsSchema = z.object({
+  orderId: z.coerce.number().int().positive(),
+  returnId: z.coerce.number().int().positive(),
+});
+
+export const resolveReturnSchema = z.object({
+  decision: z.enum(['APROBAR', 'RECHAZAR']),
+});

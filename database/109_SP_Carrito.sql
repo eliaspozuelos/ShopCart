@@ -253,11 +253,14 @@ BEGIN
     d.Cantidad,
     ROUND(v.Precio * d.Cantidad, 2) AS Importe,
     disp.ExistenciaDisponible,
-    (
-      SELECT TOP (1) img.Url
-      FROM dbo.ProductoImagen AS img
-      WHERE img.IDProducto = p.IDProducto
-      ORDER BY img.Orden, img.IDProductoImagen
+    COALESCE(
+      NULLIF(LTRIM(RTRIM(v.UrlImagen)), N''),
+      (
+        SELECT TOP (1) img.Url
+        FROM dbo.ProductoImagen AS img
+        WHERE img.IDProducto = p.IDProducto
+        ORDER BY img.Orden, img.IDProductoImagen
+      )
     ) AS Imagen
   FROM dbo.CarritoDetalle AS d
   INNER JOIN dbo.Variante AS v ON v.IDVariante = d.IDVariante

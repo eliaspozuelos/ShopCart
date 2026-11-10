@@ -163,9 +163,14 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  SELECT IDAtributo, Nombre
-  FROM dbo.Atributo
-  ORDER BY Nombre, IDAtributo;
+  SELECT
+    a.IDAtributo,
+    a.Nombre,
+    CONVERT(BIT, CASE WHEN EXISTS (
+      SELECT 1 FROM dbo.VarianteAtributo AS va WHERE va.IDAtributo = a.IDAtributo
+    ) THEN 1 ELSE 0 END) AS EnUso
+  FROM dbo.Atributo AS a
+  ORDER BY a.Nombre, a.IDAtributo;
 END;
 GO
 
@@ -217,6 +222,112 @@ END;
 GO
 
 /* ------------------------------------------------------------
+   SP_Catalogo_ActualizarAtributo
+   Cambia el nombre de un tipo de atributo.
+   ------------------------------------------------------------ */
+CREATE OR ALTER PROCEDURE dbo.SP_Catalogo_ActualizarAtributo
+  @IDUsuarioActor INT,
+  @IDAtributo INT,
+  @Nombre NVARCHAR(50)
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SET XACT_ABORT ON;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM dbo.Usuario AS u
+    INNER JOIN dbo.Rol AS r ON r.IDRol = u.IDRol
+    WHERE u.IDUsuario = @IDUsuarioActor AND u.Activo = 1 AND r.Nombre = N'Administrador'
+  )
+    THROW 50121, N'Solo un Administrador activo puede administrar el catalogo.', 1;
+
+  BEGIN TRY
+    BEGIN TRANSACTION;
+
+    IF NOT EXISTS (SELECT 1 FROM dbo.Atributo WITH (UPDLOCK, HOLDLOCK) WHERE IDAtributo = @IDAtributo)
+      THROW 50162, N'El atributo no existe.', 1;
+
+    IF EXISTS (SELECT 1 FROM dbo.Atributo WHERE Nombre = @Nombre AND IDAtributo <> @IDAtributo)
+      THROW 50135, N'Ya existe un atributo con ese nombre.', 1;
+
+    DECLARE @ValorAnterior NVARCHAR(MAX);
+    SELECT @ValorAnterior = (
+      SELECT Nombre FROM dbo.Atributo WHERE IDAtributo = @IDAtributo
+      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+    );
+
+    UPDATE dbo.Atributo SET Nombre = @Nombre WHERE IDAtributo = @IDAtributo;
+
+    INSERT INTO dbo.Bitacora (IDUsuario, Modulo, Entidad, IDEntidad, Accion, ValorAnterior, ValorNuevo)
+    VALUES (@IDUsuarioActor, N'CATALOGO', N'Atributo', @IDAtributo, N'MODIFICAR',
+            @ValorAnterior, (SELECT @Nombre AS Nombre FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
+
+    COMMIT TRANSACTION;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    IF ERROR_NUMBER() IN (2601, 2627)
+      THROW 50135, N'Ya existe un atributo con ese nombre.', 1;
+    THROW;
+  END CATCH
+
+  SELECT IDAtributo, Nombre FROM dbo.Atributo WHERE IDAtributo = @IDAtributo;
+END;
+GO
+
+/* ------------------------------------------------------------
+   SP_Catalogo_EliminarAtributo
+   Borra un tipo de atributo que ninguna variante está usando.
+   ------------------------------------------------------------ */
+CREATE OR ALTER PROCEDURE dbo.SP_Catalogo_EliminarAtributo
+  @IDUsuarioActor INT,
+  @IDAtributo INT
+AS
+BEGIN
+  SET NOCOUNT ON;
+  SET XACT_ABORT ON;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM dbo.Usuario AS u
+    INNER JOIN dbo.Rol AS r ON r.IDRol = u.IDRol
+    WHERE u.IDUsuario = @IDUsuarioActor AND u.Activo = 1 AND r.Nombre = N'Administrador'
+  )
+    THROW 50121, N'Solo un Administrador activo puede administrar el catalogo.', 1;
+
+  BEGIN TRY
+    BEGIN TRANSACTION;
+
+    DECLARE @ValorAnterior NVARCHAR(MAX);
+    SELECT @ValorAnterior = (
+      SELECT Nombre FROM dbo.Atributo WITH (UPDLOCK, HOLDLOCK)
+      WHERE IDAtributo = @IDAtributo
+      FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+    );
+
+    IF @ValorAnterior IS NULL
+      THROW 50162, N'El atributo no existe.', 1;
+
+    IF EXISTS (SELECT 1 FROM dbo.VarianteAtributo WHERE IDAtributo = @IDAtributo)
+      THROW 50163, N'Ese atributo está en variantes. Quítalo de esas variantes antes de borrarlo.', 1;
+
+    DELETE FROM dbo.Atributo WHERE IDAtributo = @IDAtributo;
+
+    INSERT INTO dbo.Bitacora (IDUsuario, Modulo, Entidad, IDEntidad, Accion, ValorAnterior, ValorNuevo)
+    VALUES (@IDUsuarioActor, N'CATALOGO', N'Atributo', @IDAtributo, N'MODIFICAR',
+            @ValorAnterior, N'{"eliminado":true}');
+
+    COMMIT TRANSACTION;
+  END TRY
+  BEGIN CATCH
+    IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION;
+    THROW;
+  END CATCH
+END;
+GO
+
+/* ------------------------------------------------------------
    SP_Catalogo_ListarProductos
    Devuelve resumen paginado para publico o administracion.
    ------------------------------------------------------------ */
@@ -262,21 +373,45 @@ BEGIN
       SELECT 1 FROM dbo.Variante v WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
         AND v.Precio <= @PrecioMaximo))
     AND (@SoloDisponibles IS NULL OR @SoloDisponibles = 0 OR EXISTS (
-      SELECT 1 FROM dbo.Variante v WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
-        AND v.ExistenciaFisica > 0));
+      SELECT 1
+      FROM dbo.Variante AS v
+      CROSS APPLY dbo.FU_Inventario_ExistenciaDisponible(v.IDVariante) AS disp
+      WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
+        AND disp.ExistenciaDisponible > 0));
 
   SELECT p.IDProducto, p.Nombre, p.Descripcion, p.Activo,
          c.IDCategoria, c.Nombre AS Categoria,
          imagen.Url AS ImagenPrincipal,
          precios.PrecioMinimo, precios.PrecioMaximo,
-         existencias.ExistenciaTotal
+         existencias.ExistenciaTotal,
+         existencias.ExistenciaDisponible,
+         variantes.CantidadVariantes
   FROM dbo.Producto AS p
   INNER JOIN dbo.Categoria AS c ON c.IDCategoria = p.IDCategoria
   OUTER APPLY (
-    SELECT TOP (1) pi.Url
-    FROM dbo.ProductoImagen AS pi
-    WHERE pi.IDProducto = p.IDProducto
-    ORDER BY pi.Orden, pi.IDProductoImagen
+    SELECT TOP (1) candidato.Url
+    FROM (
+      SELECT v.UrlImagen AS Url,
+             CASE
+               WHEN v.Precio = (
+                 SELECT MIN(barata.Precio)
+                 FROM dbo.Variante AS barata
+                 WHERE barata.IDProducto = p.IDProducto AND barata.Activa = 1
+               ) THEN 0
+               ELSE 1
+             END AS Origen,
+             v.Precio AS Orden,
+             v.IDVariante AS ID
+      FROM dbo.Variante AS v
+      WHERE v.IDProducto = p.IDProducto
+        AND v.Activa = 1
+        AND NULLIF(LTRIM(RTRIM(v.UrlImagen)), N'') IS NOT NULL
+      UNION ALL
+      SELECT pi.Url, 2, pi.Orden, pi.IDProductoImagen
+      FROM dbo.ProductoImagen AS pi
+      WHERE pi.IDProducto = p.IDProducto
+    ) AS candidato
+    ORDER BY candidato.Origen, candidato.Orden, candidato.ID
   ) AS imagen
   OUTER APPLY (
     SELECT MIN(v.Precio) AS PrecioMinimo, MAX(v.Precio) AS PrecioMaximo
@@ -284,17 +419,25 @@ BEGIN
     WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
   ) AS precios
   OUTER APPLY (
-    SELECT SUM(v.ExistenciaFisica) AS ExistenciaTotal
+    SELECT
+      SUM(v.ExistenciaFisica) AS ExistenciaTotal,
+      SUM(CASE WHEN disp.ExistenciaDisponible < 0 THEN 0 ELSE disp.ExistenciaDisponible END) AS ExistenciaDisponible
     FROM dbo.Variante AS v
+    CROSS APPLY dbo.FU_Inventario_ExistenciaDisponible(v.IDVariante) AS disp
     WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
   ) AS existencias
+  OUTER APPLY (
+    SELECT COUNT(*) AS CantidadVariantes
+    FROM dbo.Variante AS v
+    WHERE v.IDProducto = p.IDProducto AND v.Activa = 1
+  ) AS variantes
   WHERE (@IncluirInactivos = 1 OR (p.Activo = 1 AND c.Activa = 1))
     AND (@IDCategoria IS NULL OR p.IDCategoria = @IDCategoria)
     AND (@Buscar IS NULL OR CHARINDEX(@Buscar, p.Nombre) > 0
          OR CHARINDEX(@Buscar, COALESCE(p.Descripcion, N'')) > 0)
     AND (@PrecioMinimo IS NULL OR precios.PrecioMaximo >= @PrecioMinimo)
     AND (@PrecioMaximo IS NULL OR precios.PrecioMinimo <= @PrecioMaximo)
-    AND (@SoloDisponibles IS NULL OR @SoloDisponibles = 0 OR existencias.ExistenciaTotal > 0)
+    AND (@SoloDisponibles IS NULL OR @SoloDisponibles = 0 OR existencias.ExistenciaDisponible > 0)
   ORDER BY
     CASE WHEN @OrdenarPor = 'name_asc' THEN p.Nombre END ASC,
     CASE WHEN @OrdenarPor = 'name_desc' THEN p.Nombre END DESC,
@@ -342,8 +485,11 @@ BEGIN
     ))
   ORDER BY pi.Orden, pi.IDProductoImagen;
 
-  SELECT v.IDVariante, v.SKU, v.Precio, v.ExistenciaFisica, v.Activa
+  SELECT v.IDVariante, v.SKU, v.Precio, v.ExistenciaFisica,
+         CASE WHEN disp.ExistenciaDisponible < 0 THEN 0 ELSE disp.ExistenciaDisponible END AS ExistenciaDisponible,
+         v.Activa, v.UrlImagen
   FROM dbo.Variante AS v
+  CROSS APPLY dbo.FU_Inventario_ExistenciaDisponible(v.IDVariante) AS disp
   WHERE v.IDProducto = @IDProducto
     AND (@IncluirInactivos = 1 OR (
       v.Activa = 1 AND EXISTS (
@@ -584,7 +730,7 @@ BEGIN
   WHERE IDProducto = @IDProducto
   ORDER BY Orden, IDProductoImagen;
 
-  SELECT IDVariante, IDProducto, SKU, Precio, ExistenciaFisica, Activa
+  SELECT IDVariante, IDProducto, SKU, Precio, ExistenciaFisica, Activa, UrlImagen
   FROM dbo.Variante
   WHERE IDProducto = @IDProducto
   ORDER BY SKU, IDVariante;
@@ -727,14 +873,14 @@ BEGIN
     THROW;
   END CATCH
 
-  SELECT IDVariante, IDProducto, SKU, Precio, ExistenciaFisica, Activa
+  SELECT IDVariante, IDProducto, SKU, Precio, ExistenciaFisica, Activa, UrlImagen
   FROM dbo.Variante WHERE IDVariante = @IDVariante;
 END;
 GO
 
 /* ------------------------------------------------------------
    SP_Catalogo_GuardarVariante
-   Crea o actualiza SKU, precio, existencia y atributos.
+   Crea o actualiza SKU, precio, existencia, atributos y foto.
    Los cambios de existencia se registran en el kardex.
    ------------------------------------------------------------ */
 CREATE OR ALTER PROCEDURE dbo.SP_Catalogo_GuardarVariante
@@ -744,7 +890,9 @@ CREATE OR ALTER PROCEDURE dbo.SP_Catalogo_GuardarVariante
   @SKU NVARCHAR(50),
   @Precio DECIMAL(18,2),
   @AtributosJson NVARCHAR(MAX),
-  @ExistenciaFisica INT = NULL
+  @ExistenciaFisica INT = NULL,
+  @UrlImagen NVARCHAR(500) = NULL,
+  @ActualizarImagen BIT = 0
 AS
 BEGIN
   SET NOCOUNT ON;
@@ -797,8 +945,14 @@ BEGIN
 
     IF @IDVariante IS NULL
     BEGIN
-      INSERT INTO dbo.Variante (IDProducto, SKU, Precio, ExistenciaFisica)
-      VALUES (@IDProducto, @SKU, @Precio, 0);
+      INSERT INTO dbo.Variante (IDProducto, SKU, Precio, ExistenciaFisica, UrlImagen)
+      VALUES (
+        @IDProducto,
+        @SKU,
+        @Precio,
+        0,
+        CASE WHEN @ActualizarImagen = 1 THEN NULLIF(LTRIM(RTRIM(@UrlImagen)), N'') ELSE NULL END
+      );
       SET @IDVariante = CONVERT(INT, SCOPE_IDENTITY());
       SET @ExistenciaAnterior = 0;
     END
@@ -812,14 +966,19 @@ BEGIN
         THROW 50132, N'La variante no existe para este producto.', 1;
 
       SELECT @ValorAnterior = (
-        SELECT SKU, Precio, ExistenciaFisica, Activa
+        SELECT SKU, Precio, ExistenciaFisica, Activa, UrlImagen
         FROM dbo.Variante
         WHERE IDVariante = @IDVariante AND IDProducto = @IDProducto
         FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
       );
 
       UPDATE dbo.Variante
-      SET SKU = @SKU, Precio = @Precio
+      SET SKU = @SKU,
+          Precio = @Precio,
+          UrlImagen = CASE
+            WHEN @ActualizarImagen = 1 THEN NULLIF(LTRIM(RTRIM(@UrlImagen)), N'')
+            ELSE UrlImagen
+          END
       WHERE IDVariante = @IDVariante AND IDProducto = @IDProducto;
       DELETE FROM dbo.VarianteAtributo WHERE IDVariante = @IDVariante;
     END
@@ -841,7 +1000,7 @@ BEGIN
       WITH (AttributeId INT '$.attributeId', Value NVARCHAR(100) '$.value') AS input;
 
     SELECT @ValorNuevo = (
-      SELECT SKU, Precio, ExistenciaFisica, Activa
+      SELECT SKU, Precio, ExistenciaFisica, Activa, UrlImagen
       FROM dbo.Variante
       WHERE IDVariante = @IDVariante
       FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
@@ -855,7 +1014,7 @@ BEGIN
 
     COMMIT TRANSACTION;
 
-    SELECT IDVariante, IDProducto, SKU, Precio, ExistenciaFisica, Activa
+    SELECT IDVariante, IDProducto, SKU, Precio, ExistenciaFisica, Activa, UrlImagen
     FROM dbo.Variante WHERE IDVariante = @IDVariante;
   END TRY
   BEGIN CATCH

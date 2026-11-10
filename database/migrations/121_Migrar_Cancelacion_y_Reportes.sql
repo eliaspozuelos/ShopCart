@@ -1,6 +1,6 @@
 /* ============================================================
    121_Migrar_Cancelacion_y_Reportes.sql
-   Permite cancelar un pedido en PREPARANDO y agrega el umbral
+   Permite cancelar un pedido en confirmado y agrega el umbral
    de carrito abandonado usado por el dashboard.
    ============================================================ */
 USE ShopCart;
@@ -16,8 +16,7 @@ BEGIN
 END;
 GO
 
--- Cancelacion permitida solo en CONFIRMADO (Opcion B)
-DELETE t FROM dbo.TransicionEstadoPedido t INNER JOIN dbo.EstadoPedido o ON o.IDEstadoPedido = t.IDEstadoOrigen INNER JOIN dbo.EstadoPedido d ON d.IDEstadoPedido = t.IDEstadoDestino WHERE o.Nombre = N'PREPARANDO' AND d.Nombre = N'CANCELADO';
+-- La cancelacion solo sale de CONFIRMADO. 124 quita PREPARANDO -> CANCELADO.
 GO
 
 IF OBJECT_ID(N'dbo.Configuracion', N'U') IS NOT NULL

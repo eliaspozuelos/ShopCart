@@ -188,6 +188,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.SP_Inventario_ListarMovimientos
   @IDUsuarioActor INT,
   @IDVariante INT = NULL,
+  @Tipo NVARCHAR(30) = NULL,
   @Pagina INT = 1,
   @TamanoPagina INT = 20
 AS
@@ -204,12 +205,15 @@ BEGIN
 
   SET @Pagina = CASE WHEN @Pagina < 1 THEN 1 ELSE @Pagina END;
   SET @TamanoPagina = CASE WHEN @TamanoPagina < 1 THEN 20 WHEN @TamanoPagina > 100 THEN 100 ELSE @TamanoPagina END;
+  IF NULLIF(LTRIM(RTRIM(@Tipo)), N'') IS NULL SET @Tipo = NULL;
 
   DECLARE @Offset BIGINT = (CONVERT(BIGINT, @Pagina) - 1) * @TamanoPagina;
 
   SELECT COUNT(*) AS TotalRegistros
   FROM dbo.MovimientoInventario AS mi
-  WHERE @IDVariante IS NULL OR mi.IDVariante = @IDVariante;
+  INNER JOIN dbo.TipoMovimiento AS tm ON tm.IDTipoMovimiento = mi.IDTipoMovimiento
+  WHERE (@IDVariante IS NULL OR mi.IDVariante = @IDVariante)
+    AND (@Tipo IS NULL OR tm.Nombre = @Tipo);
 
   SELECT mi.IDMovimiento, mi.IDVariante, v.SKU, v.IDProducto,
          p.Nombre AS NombreProducto, tm.Nombre AS TipoMovimiento,
@@ -218,7 +222,8 @@ BEGIN
   INNER JOIN dbo.Variante AS v ON v.IDVariante = mi.IDVariante
   INNER JOIN dbo.Producto AS p ON p.IDProducto = v.IDProducto
   INNER JOIN dbo.TipoMovimiento AS tm ON tm.IDTipoMovimiento = mi.IDTipoMovimiento
-  WHERE @IDVariante IS NULL OR mi.IDVariante = @IDVariante
+  WHERE (@IDVariante IS NULL OR mi.IDVariante = @IDVariante)
+    AND (@Tipo IS NULL OR tm.Nombre = @Tipo)
   ORDER BY mi.Fecha DESC, mi.IDMovimiento DESC
   OFFSET @Offset ROWS
   FETCH NEXT @TamanoPagina ROWS ONLY;

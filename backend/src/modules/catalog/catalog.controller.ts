@@ -1,8 +1,10 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { HttpError } from "../../utils/http-error.js";
+import { readCatalogPhoto, saveCatalogPhoto } from "./catalog.photos.js";
 import {
   catalogListQuerySchema,
   categoryIdParamsSchema,
+  attributeIdParamsSchema,
   createAttributeSchema,
   createCategorySchema,
   createProductSchema,
@@ -11,6 +13,7 @@ import {
   productVariantParamsSchema,
   saveProductImageSchema,
   saveVariantSchema,
+  updateAttributeSchema,
   updateCategorySchema,
   updateProductSchema,
   variantStatusSchema,
@@ -91,6 +94,31 @@ export class CatalogController {
     response.status(201).json({
       data: await this.catalogService.createAttribute({ ...input, actorId }),
     });
+  };
+
+  // Cambia el nombre de un tipo de atributo.
+  updateAttribute = async (
+    request: Request,
+    response: Response,
+  ): Promise<void> => {
+    const actorId = this.getActorId(request);
+    const { attributeId } = attributeIdParamsSchema.parse(request.params);
+    const input = updateAttributeSchema.parse(request.body);
+    response.status(200).json({
+      message: "Atributo actualizado correctamente.",
+      data: await this.catalogService.updateAttribute({ ...input, actorId, attributeId }),
+    });
+  };
+
+  // Borra un tipo de atributo que ninguna variante está usando.
+  deleteAttribute = async (
+    request: Request,
+    response: Response,
+  ): Promise<void> => {
+    const actorId = this.getActorId(request);
+    const { attributeId } = attributeIdParamsSchema.parse(request.params);
+    await this.catalogService.deleteAttribute({ actorId, attributeId });
+    response.status(200).json({ message: "Atributo eliminado correctamente." });
   };
 
   // Lista los productos activos que puede consultar la tienda.
@@ -265,6 +293,31 @@ export class CatalogController {
         imageId,
       }),
     });
+  };
+
+  // Guarda el archivo de una foto subida desde el catálogo.
+  uploadPhoto = async (request: Request, response: Response): Promise<void> => {
+    const file = request.file;
+    if (!file?.buffer?.length) {
+      throw new HttpError(400, "PHOTO_REQUIRED", "Selecciona una foto.");
+    }
+    response.status(201).json({ data: { url: await saveCatalogPhoto(file.buffer) } });
+  };
+
+  // Entrega una foto guardada en el servidor.
+  getPhoto = async (
+    request: Request,
+    response: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    const fileName = request.params.fileName;
+    const filePath = await readCatalogPhoto(typeof fileName === "string" ? fileName : "");
+    if (!filePath) {
+      next(new HttpError(404, "PHOTO_NOT_FOUND", "No se encontró la foto."));
+      return;
+    }
+    response.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    response.sendFile(filePath);
   };
 
   // Elimina una imagen específica del producto.

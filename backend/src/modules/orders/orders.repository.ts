@@ -1,6 +1,6 @@
 import sql from 'mssql';
 import { getDatabase } from '../../config/database.js';
-import type { OrderDetailRecord, OrderRecord, ReturnRecord } from './orders.types.js';
+import type { OrderDetailRecord, OrderRecord, ReturnItemRecord, ReturnRecord, ReturnView } from './orders.types.js';
 
 export class OrdersRepository {
   async checkout(input: {
@@ -31,6 +31,7 @@ export class OrdersRepository {
   async list(input: {
     userId?: number | undefined;
     customerId?: number | undefined;
+    customer?: string | undefined;
     status?: string | undefined;
     from?: Date | undefined;
     to?: Date | undefined;
@@ -40,6 +41,7 @@ export class OrdersRepository {
     const result = await (await getDatabase()).request()
       .input('IDUsuario', sql.Int, input.userId ?? null)
       .input('IDCliente', sql.Int, input.customerId ?? null)
+      .input('Busqueda', sql.NVarChar(100), input.customer ?? null)
       .input('Estado', sql.NVarChar(30), input.status ?? null)
       .input('Desde', sql.DateTime2, input.from ?? null)
       .input('Hasta', sql.DateTime2, input.to ?? null)
@@ -61,6 +63,35 @@ export class OrdersRepository {
       .execute<OrderRecord>('dbo.SP_Pedidos_CambiarEstado');
 
     return result.recordset[0];
+  }
+
+  async listReturns(orderId: number): Promise<ReturnView[]> {
+    const result = await (await getDatabase()).request()
+      .input('IDPedido', sql.Int, orderId)
+      .execute<[ReturnRecord, ReturnItemRecord]>('dbo.SP_Devoluciones_Listar');
+    const headers = result.recordsets[0] ?? [];
+    const items = result.recordsets[1] ?? [];
+    return headers.map((header) => ({
+      ...header,
+      items: items.filter((item) => item.IDDevolucion === header.IDDevolucion),
+    }));
+  }
+
+  async resolveReturn(input: {
+    orderId: number;
+    returnId: number;
+    userId: number;
+    decision: 'APROBAR' | 'RECHAZAR';
+  }): Promise<ReturnRecord> {
+    const result = await (await getDatabase()).request()
+      .input('IDDevolucion', sql.Int, input.returnId)
+      .input('IDPedido', sql.Int, input.orderId)
+      .input('IDUsuarioActor', sql.Int, input.userId)
+      .input('Decision', sql.NVarChar(20), input.decision)
+      .execute<ReturnRecord>('dbo.SP_Devoluciones_Resolver');
+    const record = result.recordset[0];
+    if (!record) throw new Error('SP_Devoluciones_Resolver no devolvió la solicitud.');
+    return record;
   }
 
   async createReturn(input: { orderId: number; userId: number; reason: string; items: Array<{ orderDetailId: number; quantity: number; amount: number }> }): Promise<{ returnRecord: ReturnRecord; details: unknown[] }> {

@@ -5,4 +5,5 @@ import { AuditController } from './audit.controller.js';
 const controller = new AuditController();
 export const auditRouter = Router();
 auditRouter.use(authenticate, requireRole('Administrador'));
+auditRouter.get('/summary', controller.summary);
 auditRouter.get('/', controller.list);

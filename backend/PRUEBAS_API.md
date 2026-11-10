@@ -44,6 +44,7 @@ Esta guía detalla el paso a paso para probar exhaustivamente todos los módulos
   "name": "Carlos López"
 }
 ```
+- **Límite:** comparte con el login 5 solicitudes por minuto por IP. La sexta responde `429` con `error.code = AUTH_RATE_LIMIT`.
 - **Respuesta esperada (201 Created):**
 ```json
 {
@@ -62,6 +63,7 @@ Esta guía detalla el paso a paso para probar exhaustivamente todos los módulos
 - **Método:** `POST`
 - **URL:** `{{base_url}}/auth/login`
 - **Acceso:** Público
+- **Límite:** 5 solicitudes por minuto por IP, contadas junto con el registro.
 - **Cuerpo (JSON):**
 ```json
 {
@@ -448,14 +450,21 @@ Esta guía detalla el paso a paso para probar exhaustivamente todos los módulos
 *Flujo legal de estados:*
 `CONFIRMADO` $\rightarrow$ `PREPARANDO` $\rightarrow$ `DESPACHADO` $\rightarrow$ `EN_RUTA` $\rightarrow$ `ENTREGADO`.
 *Cancelación:*
-`CONFIRMADO` $\rightarrow$ `CANCELADO` (único estado cancelable; una vez en preparación ya no se puede cancelar). Al cancelar, se reintegra automáticamente el stock físico en el kardex como `ANULACION_VENTA`.
+`CONFIRMADO` → `CANCELADO`. El Cliente usa `POST /orders/:orderId/cancel` sobre su propio pedido. El Operador o el Administrador usan `PATCH /orders/:orderId/status`. En `PREPARANDO` ya no se cancela. Al cancelar, la existencia vuelve al kardex como `ENTRADA` y se libera el cupón.
+
+### 9.5. Cancelación por el cliente
+- **Método:** `POST`
+- **URL:** `{{base_url}}/orders/1/cancel`
+- **Headers:** `Authorization: Bearer <token_cliente>`
+- **Efecto:** el pedido pasa a `CANCELADO` solo si está en `CONFIRMADO`.
 
 ---
 
 ## 10. Devoluciones (RF-08)
 
-*Solo aplicable a pedidos en estado `ENTREGADO`.*
+*La solicitud aplica a un pedido `ENTREGADO`. El inventario no cambia hasta que un Operador o Administrador la aprueba.*
 
+### 10.1. Solicitar
 - **Método:** `POST`
 - **URL:** `{{base_url}}/orders/1/returns`
 - **Headers:** `Authorization: Bearer <token_cliente_o_admin>`
@@ -472,7 +481,19 @@ Esta guía detalla el paso a paso para probar exhaustivamente todos los módulos
   ]
 }
 ```
-*Efecto:* Reintegra 1 unidad al stock físico de la variante en el kardex bajo el movimiento `DEVOLUCION` y actualiza el pedido a estado `DEVUELTO`.
+*Efecto:* crea una solicitud `SOLICITADA`. No reintegra stock.
+
+### 10.2. Aprobar o rechazar
+- **Método:** `PATCH`
+- **URL:** `{{base_url}}/orders/1/returns/1`
+- **Headers:** `Authorization: Bearer <token_operador_o_admin>`
+- **Cuerpo (JSON):**
+```json
+{
+  "decision": "APROBAR"
+}
+```
+`APROBAR` reintegra las unidades al kardex como `DEVOLUCION` y, si ya no queda nada por devolver, pasa el pedido a `DEVUELTO`. `RECHAZAR` deja la existencia igual.
 
 ---
 
@@ -510,6 +531,13 @@ Esta guía detalla el paso a paso para probar exhaustivamente todos los módulos
   }
 }
 ```
+
+La misma consulta, con los mismos `from` y `to`, se sirve desde memoria durante 60 segundos. Crear un pedido, cambiar su estado, aprobar una devolución o ajustar existencia descarta esa copia.
+
+### 11.1. Exportar el periodo a Excel
+- **Método:** `GET`
+- **URL:** `{{base_url}}/reports/dashboard/export?from=2026-01-01&to=2026-12-31`
+- **Respuesta esperada (200 OK):** archivo `.xlsx` con las hojas Resumen, Ventas por dia, Ventas por semana, Ventas por mes, Categorias, Dia por categoria, Top productos, Estados y Existencia baja. Las hojas de series incluyen un gráfico de Excel: línea en día, semana y mes; pastel en categorías y estados; barras en el top 10; columnas apiladas en ventas por día y categoría. `Dia por categoria` trae el detalle (periodo, categoría, unidades y venta) y, a la derecha, la matriz que alimenta el gráfico.
 
 ---
 
@@ -596,8 +624,11 @@ Esta guía detalla el paso a paso para probar exhaustivamente todos los módulos
 | **Orders** | `GET` | `/orders` | Autenticado | Listar pedidos |
 | **Orders** | `GET` | `/orders/:id` | Autenticado | Ver detalle de pedido |
 | **Orders** | `PATCH` | `/orders/:id/status` | Operador / Admin | Avanzar máquina de estados |
-| **Returns** | `POST` | `/orders/:id/returns` | Autenticado | Devolución de pedido |
+| **Orders** | `POST` | `/orders/:id/cancel` | Cliente | Cancelar su pedido en `CONFIRMADO` |
+| **Returns** | `POST` | `/orders/:id/returns` | Autenticado | Solicitar devolución |
+| **Returns** | `PATCH` | `/orders/:id/returns/:returnId` | Operador / Admin | Aprobar o rechazar la solicitud |
 | **Reports** | `GET` | `/reports/dashboard` | Administrador | Métricas y BI |
+| **Reports** | `GET` | `/reports/dashboard/export` | Administrador | Descarga del periodo en Excel, con gráficos y ventas por día y categoría |
 | **Config** | `GET` | `/configuration` | Administrador | Ver configuración |
 | **Config** | `POST` | `/configuration` | Administrador | Crear clave config |
 | **Config** | `PATCH` | `/configuration/:key` | Administrador | Editar clave config |

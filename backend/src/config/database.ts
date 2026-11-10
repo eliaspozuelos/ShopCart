@@ -12,14 +12,16 @@ export function connectDatabase(): Promise<sql.ConnectionPool> {
       database: env.SQL_DATABASE,
       user: env.SQL_USER,
       password: env.SQL_PASSWORD,
+      requestTimeout: 30000,
       options: {
         encrypt: env.SQL_ENCRYPT,
         trustServerCertificate: env.SQL_TRUST_SERVER_CERTIFICATE,
+        requestTimeout: 30000,
       },
       pool: {
         max: 10,
-        min: 0,
-        idleTimeoutMillis: 30_000,
+        min: 2,
+        idleTimeoutMillis: 300_000,
       },
     });
 

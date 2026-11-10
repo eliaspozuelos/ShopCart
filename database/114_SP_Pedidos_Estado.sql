@@ -1,6 +1,7 @@
 ﻿/* ============================================================
    114_SP_Pedidos_Estado.sql
-   Cambio de estado de pedidos por Operadores y Administradores.
+   Cambio de estado de pedidos.
+   El cliente solo puede cancelar el suyo en CONFIRMADO, antes de preparar.
    ============================================================ */
 USE ShopCart;
 GO
@@ -21,25 +22,37 @@ BEGIN
     IF @IDEstadoDestino IS NULL
       THROW 50221, N'El estado de destino no existe.', 1;
 
-    IF NOT EXISTS (
-      SELECT 1
-      FROM dbo.Usuario u
-      INNER JOIN dbo.Rol r ON r.IDRol = u.IDRol
-      WHERE u.IDUsuario = @IDUsuarioActor
-        AND u.Activo = 1
-        AND r.Nombre IN (N'Operador', N'Administrador')
-    )
+    DECLARE @Rol NVARCHAR(30);
+    SELECT @Rol = r.Nombre
+    FROM dbo.Usuario AS u
+    INNER JOIN dbo.Rol AS r ON r.IDRol = u.IDRol
+    WHERE u.IDUsuario = @IDUsuarioActor
+      AND u.Activo = 1;
+
+    IF @Rol IS NULL
       THROW 50223, N'Solo un Operador o Administrador puede cambiar el estado del pedido.', 1;
 
     BEGIN TRANSACTION;
 
     DECLARE @IDEstadoOrigen INT;
-    SELECT @IDEstadoOrigen = IDEstadoPedido
-    FROM dbo.Pedido WITH (UPDLOCK, HOLDLOCK)
-    WHERE IDPedido = @IDPedido;
+    DECLARE @Dueno INT;
+    DECLARE @NombreOrigen NVARCHAR(30);
+    SELECT @IDEstadoOrigen = p.IDEstadoPedido, @Dueno = p.IDUsuario, @NombreOrigen = e.Nombre
+    FROM dbo.Pedido AS p WITH (UPDLOCK, HOLDLOCK)
+    INNER JOIN dbo.EstadoPedido AS e ON e.IDEstadoPedido = p.IDEstadoPedido
+    WHERE p.IDPedido = @IDPedido;
 
     IF @IDEstadoOrigen IS NULL
       THROW 50220, N'No se encontró el pedido.', 1;
+
+    IF @Rol = N'Cliente'
+    BEGIN
+      IF @Dueno <> @IDUsuarioActor OR @NombreEstadoDestino <> N'CANCELADO'
+        OR @NombreOrigen <> N'CONFIRMADO'
+        THROW 50232, N'Solo puedes cancelar tu propio pedido mientras está confirmado, antes de la preparación.', 1;
+    END
+    ELSE IF @Rol NOT IN (N'Operador', N'Administrador')
+      THROW 50223, N'Solo un Operador o Administrador puede cambiar el estado del pedido.', 1;
 
     IF EXISTS (
       SELECT 1

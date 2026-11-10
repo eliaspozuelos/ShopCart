@@ -12,6 +12,10 @@ export const createInternalUserSchema = z.object({
   password: passwordSchema,
   name: z.string().trim().min(1).max(100),
   role: z.enum(['Operador', 'Administrador']),
+  line1: z.string().trim().min(1).max(200),
+  municipality: z.string().trim().min(1).max(100),
+  department: z.string().trim().min(1).max(100),
+  phone: z.string().trim().min(1).max(20),
 });
 
 export const listUsersQuerySchema = z.object({

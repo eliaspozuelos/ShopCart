@@ -165,8 +165,8 @@ Todas las rutas de la API de negocio están expuestas bajo el prefijo:
 ### 6.1. Módulo de Autenticación y Sesiones (`/auth`)
 | Método | Endpoint | Rol Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/auth/register` | Público | Registro público de nuevos clientes. |
-| `POST` | `/auth/login` | Público | Autenticación con email/password. Retorna JWT y establece cookie HttpOnly `shopcart_refresh`. |
+| `POST` | `/auth/register` | Público | Registro público de nuevos clientes. Comparte con el login un máximo de 5 intentos por minuto por IP; el sexto responde `429` `AUTH_RATE_LIMIT`. |
+| `POST` | `/auth/login` | Público | Autenticación con email/password. Retorna JWT y establece cookie HttpOnly `shopcart_refresh`. Mismo límite de 5 intentos por minuto por IP. |
 | `POST` | `/auth/refresh` | Cookie HttpOnly | Rotación de Refresh Token y emisión de nuevo Access Token. |
 | `POST` | `/auth/logout` | Cookie HttpOnly | Invalida el Refresh Token en BD y elimina la cookie de sesión. |
 | `PATCH` | `/auth/password` | Cliente, Operador, Admin | Cambio de contraseña propia (requiere contraseña actual). |
@@ -181,28 +181,32 @@ Todas las rutas de la API de negocio están expuestas bajo el prefijo:
 | `GET` | `/users` | Administrador | Listado paginado de usuarios con filtros por rol, estado y búsqueda. |
 | `POST` | `/users` | Administrador | Creación interna de usuarios con rol Operador o Administrador. |
 | `GET` | `/users/:userId` | Administrador | Detalle completo de un usuario específico. |
-| `PATCH` | `/users/:userId` | Administrador | Actualización administrativa de datos de un usuario. |
-| `PATCH` | `/users/:userId/status` | Administrador | Activa o desactiva la cuenta de un usuario. |
+| `PATCH` | `/users/:userId` | Administrador | Cambia el nombre o el correo. No cambia el rol, la contraseña ni la dirección. |
+| `PATCH` | `/users/:userId/status` | Administrador | Activa o desactiva la cuenta. No hay `DELETE`: desactivar revoca la sesión y conserva los pedidos. No se puede desactivar la propia cuenta ni al último administrador activo. |
 
 ### 6.3. Módulo de Catálogo de Productos (`/catalog`)
 | Método | Endpoint | Rol Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/catalog/categories` | Público | Lista de categorías de productos activas. |
-| `GET` | `/catalog/attributes` | Público | Lista de tipos de atributos para variantes (Talla, Color, etc.). |
-| `GET` | `/catalog/products` | Público | Búsqueda y listado paginado con filtros por categoría, precio, disponibilidad y orden. |
-| `GET` | `/catalog/products/:productId` | Público | Detalle de un producto con sus imágenes y variantes activas con stock. |
+| `GET` | `/catalog/attributes` | Público | Lista de tipos de atributos (`id`, `name`, `inUse`). `inUse` es verdadero cuando alguna variante ya lo usa. |
+| `GET` | `/catalog/products` | Público | Búsqueda y listado paginado con filtros por categoría, precio, disponibilidad y orden. La imagen principal es la foto de la variante activa más barata; si esa no tiene, otra variante activa; si ninguna tiene, `ProductoImagen`. |
+| `GET` | `/catalog/products/:productId` | Público | Detalle con imágenes del producto y variantes activas. Cada variante trae `imageUrl`. |
 | `GET` | `/catalog/admin/categories` | Administrador | Lista todas las categorías (incluidas inactivas). |
 | `POST` | `/catalog/admin/categories` | Administrador | Crea una nueva categoría. |
 | `PATCH` | `/catalog/admin/categories/:categoryId` | Administrador | Modifica el nombre o estado activo de una categoría. |
 | `POST` | `/catalog/admin/attributes` | Administrador | Registra un nuevo tipo de atributo. |
+| `PATCH` | `/catalog/admin/attributes/:attributeId` | Administrador | Cambia el nombre de un tipo de atributo. |
+| `DELETE` | `/catalog/admin/attributes/:attributeId` | Administrador | Elimina el tipo de atributo solo si ninguna variante lo usa. Si está en productos, responde `409` `ATTRIBUTE_IN_USE` y no lo borra. El panel lee `inUse` y, en ese caso, avisa sin llamar a este DELETE. |
 | `GET` | `/catalog/admin/products` | Administrador | Lista administrativa de productos (activos e inactivos). |
 | `GET` | `/catalog/admin/products/:productId` | Administrador | Detalle administrativo con variantes e imágenes completas. |
 | `POST` | `/catalog/admin/products` | Administrador | Creación atómica de producto, variantes, imágenes y stock inicial en kardex. |
-| `PATCH` | `/catalog/admin/products/:productId` | Administrador | Actualiza nombre, descripción o estado de un producto. |
+| `PATCH` | `/catalog/admin/products/:productId` | Administrador | Actualiza categoría, nombre, descripción o estado. La categoría nueva tiene que existir y estar activa (`50130` si no). |
 | `POST` | `/catalog/admin/products/:productId/variants` | Administrador | Agrega una variante al producto con stock inicial. |
-| `PUT` | `/catalog/admin/products/:productId/variants/:variantId` | Administrador | Modifica SKU, precio, atributos y existencia física absoluta. |
-| `PATCH` | `/catalog/admin/products/:productId/variants/:variantId/status` | Administrador | Activa o desactiva una variante. |
-| `POST` | `/catalog/admin/products/:productId/images` | Administrador | Agrega una imagen con URL y orden. |
+| `PUT` | `/catalog/admin/products/:productId/variants/:variantId` | Administrador | Modifica SKU, precio, atributos, existencia y foto. Mandar `imageUrl` vacío quita la foto de la variante; omitirlo la deja igual. Los atributos enviados reemplazan los anteriores. |
+| `PATCH` | `/catalog/admin/products/:productId/variants/:variantId/status` | Administrador | Activa o desactiva una variante. No cambia la existencia. El listado público y el stock visible ignoran las inactivas; el detalle de admin las sigue mostrando. |
+| `POST` | `/catalog/admin/photos` | Administrador | Recibe la foto del formulario (`photo`) y la guarda en disco. |
+| `GET` | `/catalog/media/:fileName` | Público | Devuelve el archivo de una foto ya guardada. |
+| `POST` | `/catalog/admin/products/:productId/images` | Administrador | Asocia al producto la ruta de una foto y su orden. |
 | `PUT` | `/catalog/admin/products/:productId/images/:imageId` | Administrador | Actualiza URL y orden de una imagen. |
 | `DELETE` | `/catalog/admin/products/:productId/images/:imageId` | Administrador | Elimina lógicamente una imagen de producto. |
 
@@ -211,7 +215,7 @@ Todas las rutas de la API de negocio están expuestas bajo el prefijo:
 | :--- | :--- | :--- | :--- |
 | `GET` | `/inventory/variants/:variantId/stock` | Operador, Admin | Consulta stock físico, reservado activo y disponibilidad neta. |
 | `PATCH` | `/inventory/variants/:variantId/stock` | Operador, Admin | Ajuste manual de existencia con motivo obligatorio y registro en kardex. |
-| `GET` | `/inventory/movements` | Operador, Admin | Consulta paginada del kardex con filtros por variante y fecha. |
+| `GET` | `/inventory/movements` | Operador, Admin | Kardex paginado. Filtra por `variantId` y por `type` (`ENTRADA`, `SALIDA`, `AJUSTE_POSITIVO`, `AJUSTE_NEGATIVO`, `DEVOLUCION`). |
 
 ### 6.5. Módulo de Cupones y Promociones (`/coupons`)
 | Método | Endpoint | Rol Requerido | Descripción |
@@ -220,7 +224,7 @@ Todas las rutas de la API de negocio están expuestas bajo el prefijo:
 | `GET` | `/coupons` | Administrador | Listado paginado de cupones con filtros de vigencia y estado. |
 | `GET` | `/coupons/:couponId` | Administrador | Detalle de reglas de un cupón específico. |
 | `POST` | `/coupons` | Administrador | Crea un cupón (porcentaje o monto fijo, límite total y por cliente). |
-| `PATCH` | `/coupons/:couponId` | Administrador | Modifica vigencia, límites o desactiva un cupón. |
+| `PATCH` | `/coupons/:couponId` | Administrador | Cambia compra mínima, vigencia, límites, categoría o el estado activo. El código, el tipo y el valor no se modifican. No hay `DELETE`: desactivar (`active: false`) lo quita de la tienda sin borrar el descuento de pedidos ya hechos. |
 
 ### 6.6. Módulo de Carrito de Compras (`/cart`)
 | Método | Endpoint | Rol Requerido | Descripción |
@@ -237,15 +241,18 @@ Todas las rutas de la API de negocio están expuestas bajo el prefijo:
 | Método | Endpoint | Rol Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/orders/checkout` | Cliente | Convierte el carrito en pedido, descuenta stock del kardex y registra pago. |
-| `GET` | `/orders` | Cliente, Operador, Admin | Cliente consulta sus pedidos; Operador y Admin consultan todos con filtros. |
+| `GET` | `/orders` | Cliente, Operador, Admin | Lista paginada (`page`, `pageSize` de 1 a 100, 20 por defecto). El cliente solo ve los suyos. Operador y administrador ven todos y pueden filtrar por estado, nombre o correo del cliente, id de cliente y fechas. |
 | `GET` | `/orders/:orderId` | Cliente, Operador, Admin | Detalle con líneas, montos, desglose de impuestos e historial de estados. |
-| `PATCH` | `/orders/:orderId/status` | Operador, Admin | Transición de estado (`PREPARANDO`, `DESPACHADO`, `EN_RUTA`, `ENTREGADO`, `CANCELADO`). |
-| `POST` | `/orders/:orderId/returns` | Cliente, Operador, Admin | Registra devolución sobre orden entregada y reintegra stock al kardex. |
+| `PATCH` | `/orders/:orderId/status` | Operador, Admin | Transición de estado (`PREPARANDO`, `DESPACHADO`, `EN_RUTA`, `ENTREGADO`, `CANCELADO`). `CANCELADO` solo sale de `CONFIRMADO`, antes de preparar, y reintegra el kardex. |
+| `POST` | `/orders/:orderId/cancel` | Cliente | Cancela su pedido solo en `CONFIRMADO`. Reintegra la existencia y libera el cupón. |
+| `POST` | `/orders/:orderId/returns` | Cliente, Operador, Admin | Crea una solicitud de devolución sobre un pedido entregado. No mueve inventario. |
+| `PATCH` | `/orders/:orderId/returns/:returnId` | Operador, Admin | `APROBAR` reintegra el kardex como `DEVOLUCION`. `RECHAZAR` deja la existencia igual. |
 
 ### 6.8. Módulo de Reportes de Inteligencia de Negocio (`/reports`)
 | Método | Endpoint | Rol Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/reports/dashboard` | Administrador | Dashboard con ventas netas (restando devoluciones), series temporales, categorías y top 10 productos. |
+| `GET` | `/reports/dashboard` | Administrador | Dashboard con ventas netas (restando devoluciones aprobadas), series temporales, categorías, ventas por día y categoría (`salesByDayCategory`) y top 10 productos. La respuesta se reutiliza 60 segundos. Se descarta al crear un pedido, cambiar su estado, aprobar una devolución o ajustar existencia. |
+| `GET` | `/reports/dashboard/export` | Administrador | El mismo periodo en un libro Excel (`.xlsx`). Conserva resumen, día, semana, mes, categorías, top 10, estados y existencia baja, y agrega la hoja `Dia por categoria`. Cada serie lleva un gráfico: línea de ventas por día, semana y mes; pastel de categorías y de estados; barras del top 10; columnas apiladas de ventas por día y categoría. |
 
 ### 6.9. Módulo de Configuración del Sistema (`/configuration`)
 | Método | Endpoint | Rol Requerido | Descripción |
@@ -257,7 +264,8 @@ Todas las rutas de la API de negocio están expuestas bajo el prefijo:
 ### 6.10. Módulo de Bitácora de Auditoría (`/audit`)
 | Método | Endpoint | Rol Requerido | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/audit` | Administrador | Consulta paginada del log de auditoría inmutable de eventos críticos. |
+| `GET` | `/audit/summary` | Administrador | Totales de toda la bitácora: eventos por módulo, por acción y por día en los últimos 30 días. |
+| `GET` | `/audit` | Administrador | Consulta paginada del log de auditoría inmutable de eventos críticos. El panel pide 10 eventos por página. |
 
 ---
 
@@ -271,3 +279,29 @@ Todas las rutas de la API de negocio están expuestas bajo el prefijo:
    - Refresh Token rotativo almacenado únicamente como **hash SHA-256** en la tabla `dbo.SesionUsuario` y transmitido mediante cookie `HttpOnly` con directivas `SameSite=Strict`.
 5. **No Almacenamiento de Datos Financieros Sensibles:** El método `TARJETA` procesa y confirma la transacción de forma simulada/local sin guardar número de tarjeta, CVV o vencimiento.
 6. **Manejo Monetario y Fiscal:** Todos los cálculos utilizan tipos `decimal(18,2)` en Quetzales (`GTQ`), desglosando el 12% de IVA en líneas y encabezados de pedidos sin discrepancias por redondeo.
+7. **Límite de intentos de autenticación:** `express-rate-limit` cuenta `POST /auth/login` y `POST /auth/register` juntos. Cada IP dispone de 5 solicitudes por minuto. La respuesta `429` usa el mismo formato `{ error: { code, message } }` del resto de la API. La renovación del token no entra en ese conteo.
+
+---
+
+## 8. Algunas modificaciones
+
+### Fotos subidas desde el catálogo
+
+El panel ya no pide pegar una URL. El administrador elige un archivo y el backend lo guarda en disco.
+
+- Se instaló **multer** `^2.5.0` para recibir `multipart/form-data`. Es la única dependencia nueva de este cambio.
+- `POST /api/v1/catalog/admin/photos` acepta el campo `photo`. Solo JPG, PNG, WEBP o GIF, con un máximo de 2 MB. El tipo se comprueba con los bytes del archivo, no con el nombre.
+- El archivo queda en `backend/uploads/catalog`, con un nombre aleatorio. Esa carpeta está en `.gitignore` y no se sube al repositorio.
+- SQL Server no guarda el binario. `Variante.UrlImagen` y `ProductoImagen.Url` guardan la ruta, por ejemplo `/api/v1/catalog/media/<archivo>`.
+- El producto nuevo puede llevar una foto de respaldo. Se guarda en `ProductoImagen` y la tienda la muestra solo cuando la variante no tiene la suya. La foto propia de cada variante se guarda en `Variante.UrlImagen`, columna agregada con `database/115_Variante_UrlImagen.sql`.
+- `GET /api/v1/catalog/media/:fileName` es público y entrega el archivo para la tienda, el carrito y el panel.
+- En el listado, la imagen principal sale de la variante activa más barata que tenga foto. Después se consideran las demás variantes activas y, al final, `ProductoImagen`. El carrito usa la foto de la variante y, si no tiene, la primera imagen del producto.
+
+### Atributos del catálogo
+
+Un atributo es solo el tipo (`Material`, `Color`). Los valores (`Plata`, `Oro`) se guardan en la variante.
+
+- `GET /api/v1/catalog/attributes` devuelve `inUse`. Sale de `SP_Catalogo_ListarAtributos`, que marca el atributo cuando existe una fila en `VarianteAtributo`.
+- `PATCH /api/v1/catalog/admin/attributes/:attributeId` cambia el nombre. Un nombre repetido responde `409` `CATALOG_NAME_ALREADY_EXISTS`.
+- `DELETE` borra el atributo solo si ninguna variante lo usa. Si lo usa, `SP_Catalogo_EliminarAtributo` lanza `50163` y la API responde `409` `ATTRIBUTE_IN_USE`. El panel muestra la alerta con ese dato y no envía el DELETE, así el navegador no imprime el 409. Una llamada directa a la ruta sí recibe ese 409: es el rechazo esperado, no un fallo sin capturar.
+- La bitácora no admite la acción `ELIMINAR`. El borrado queda como `MODIFICAR` con `{"eliminado":true}`.

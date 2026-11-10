@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../../middlewares/authenticate.middleware.js';
 import { CatalogController } from './catalog.controller.js';
+import { catalogPhotoUpload } from './catalog.photos.js';
 
 const controller = new CatalogController();
 
@@ -11,6 +12,7 @@ catalogRouter.get('/categories', controller.listCategories);
 catalogRouter.get('/attributes', controller.listAttributes);
 catalogRouter.get('/products', controller.listProducts);
 catalogRouter.get('/products/:productId', controller.getProduct);
+catalogRouter.get('/media/:fileName', controller.getPhoto);
 
 // La administración del catálogo está reservada al Administrador.
 catalogRouter.use('/admin', authenticate, requireRole('Administrador'));
@@ -21,6 +23,9 @@ catalogRouter.post('/admin/categories', controller.createCategory);
 catalogRouter.patch('/admin/categories/:categoryId', controller.updateCategory);
 
 catalogRouter.post('/admin/attributes', controller.createAttribute);
+catalogRouter.patch('/admin/attributes/:attributeId', controller.updateAttribute);
+catalogRouter.delete('/admin/attributes/:attributeId', controller.deleteAttribute);
+catalogRouter.post('/admin/photos', catalogPhotoUpload, controller.uploadPhoto);
 
 catalogRouter.get('/admin/products', controller.listAdminProducts);
 catalogRouter.get('/admin/products/:productId', controller.getAdminProduct);

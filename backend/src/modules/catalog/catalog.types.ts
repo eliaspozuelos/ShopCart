@@ -7,6 +7,7 @@ export interface CategoryRecord {
 export interface AttributeRecord {
   IDAtributo: number;
   Nombre: string;
+  EnUso?: boolean;
 }
 
 export interface ProductRecord {
@@ -20,6 +21,8 @@ export interface ProductRecord {
   PrecioMinimo: number | null;
   PrecioMaximo: number | null;
   ExistenciaTotal: number | null;
+  ExistenciaDisponible: number | null;
+  CantidadVariantes: number | null;
 }
 
 export interface ProductDetailRecord {
@@ -44,7 +47,9 @@ export interface ProductVariantRecord {
   SKU: string;
   Precio: number;
   ExistenciaFisica: number;
+  ExistenciaDisponible?: number;
   Activa: boolean;
+  UrlImagen: string | null;
 }
 
 export interface ProductVariantAttributeRecord {
@@ -61,6 +66,7 @@ export interface ProductVariantResponse {
   priceDisplay: string;
   stock: number;
   active: boolean;
+  imageUrl: string | null;
   attributes: Array<{ id: number; name: string; value: string }>;
 }
 
@@ -81,7 +87,11 @@ export function toCategoryResponse(category: CategoryRecord) {
 }
 
 export function toAttributeResponse(attribute: AttributeRecord) {
-  return { id: attribute.IDAtributo, name: attribute.Nombre };
+  return {
+    id: attribute.IDAtributo,
+    name: attribute.Nombre,
+    inUse: Boolean(attribute.EnUso),
+  };
 }
 
 export function toProductSummaryResponse(
@@ -105,5 +115,6 @@ export function toProductSummaryResponse(
       maximumDisplay: formatMoney(product.PrecioMaximo),
     },
     stock: product.ExistenciaTotal ?? 0,
+    variantCount: product.CantidadVariantes ?? 0,
   };
 }

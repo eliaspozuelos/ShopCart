@@ -9,6 +9,7 @@ export const listOrdersSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
   status: z.string().trim().max(30).optional(),
   customerId: z.coerce.number().int().positive().optional(),
+  customer: z.string().trim().max(100).optional(),
   from: z.coerce.date().optional(),
   to: z.coerce.date().optional(),
 });

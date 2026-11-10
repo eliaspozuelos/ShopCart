@@ -148,6 +148,10 @@ export class UsersRepository {
     passwordHash: string;
     name: string;
     role: 'Operador' | 'Administrador';
+    line1: string;
+    municipality: string;
+    department: string;
+    phone: string;
   }): Promise<number> {
     const database = await getDatabase();
     const result = await database.request()
@@ -156,6 +160,10 @@ export class UsersRepository {
       .input('ContrasenaHash', sql.NVarChar(255), input.passwordHash)
       .input('Nombre', sql.NVarChar(100), input.name)
       .input('NombreRol', sql.NVarChar(30), input.role)
+      .input('Linea1', sql.NVarChar(200), input.line1)
+      .input('Municipio', sql.NVarChar(100), input.municipality)
+      .input('Departamento', sql.NVarChar(100), input.department)
+      .input('Telefono', sql.NVarChar(20), input.phone)
       .execute<{ IDUsuario: number }>('dbo.SP_Usuarios_CrearInterno');
 
     const userId = result.recordset[0]?.IDUsuario;

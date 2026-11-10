@@ -33,5 +33,22 @@ export interface ReturnRecord {
   IDUsuario: number;
   Motivo: string;
   MontoReintegrado: number;
+  Estado?: string;
   Fecha: string;
+  FechaResolucion?: string | null;
+  NombreUsuario?: string;
+}
+
+export interface ReturnItemRecord {
+  IDDevolucionDetalle: number;
+  IDDevolucion: number;
+  IDPedidoDetalle: number;
+  Cantidad: number;
+  Monto: number;
+  NombreSnapshot: string;
+  SKUSnapshot: string;
+}
+
+export interface ReturnView extends ReturnRecord {
+  items: ReturnItemRecord[];
 }

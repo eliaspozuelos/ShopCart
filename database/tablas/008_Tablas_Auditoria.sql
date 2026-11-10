@@ -32,6 +32,7 @@ CREATE TABLE dbo.Bitacora (
 );
 GO
 CREATE INDEX IX_Bitacora_Modulo ON dbo.Bitacora (Modulo, Fecha DESC);
+CREATE INDEX IX_Bitacora_Fecha ON dbo.Bitacora (Fecha DESC, IDBitacora DESC);
 GO
 
 /* ------------------------------------------------------------

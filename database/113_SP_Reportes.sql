@@ -1,7 +1,8 @@
 ﻿/* ============================================================
    113_SP_Reportes.sql
-   Dashboard administrativo: ventas netas de pedidos completados,
-   descontando devoluciones, y series por periodo.
+   Dashboard administrativo: ventas netas, cola de pedidos,
+   cancelaciones, devoluciones y existencia baja.
+   El último resultado es la venta neta por día y categoría.
    ============================================================ */
 USE ShopCart;
 GO
@@ -40,11 +41,13 @@ BEGIN
       SELECT SUM(dv.MontoReintegrado)
       FROM dbo.Devolucion AS dv
       WHERE dv.IDPedido = p.IDPedido
+        AND dv.Estado = N'APROBADA'
     ), 0),
     p.Total - COALESCE((
       SELECT SUM(dv.MontoReintegrado)
       FROM dbo.Devolucion AS dv
       WHERE dv.IDPedido = p.IDPedido
+        AND dv.Estado = N'APROBADA'
     ), 0)
   FROM dbo.Pedido AS p
   INNER JOIN dbo.EstadoPedido AS e ON e.IDEstadoPedido = p.IDEstadoPedido
@@ -139,5 +142,81 @@ BEGIN
     AND EXISTS (
       SELECT 1 FROM dbo.CarritoDetalle AS d WHERE d.IDCarrito = c.IDCarrito
     );
+
+  -- Cola actual. No usa el rango de fechas: son los pedidos que alguien tiene que mover ahora.
+  SELECT
+    COALESCE(SUM(CASE WHEN e.Nombre = N'CONFIRMADO' THEN 1 ELSE 0 END), 0) AS Confirmado,
+    COALESCE(SUM(CASE WHEN e.Nombre = N'PREPARANDO' THEN 1 ELSE 0 END), 0) AS Preparando,
+    COALESCE(SUM(CASE WHEN e.Nombre = N'DESPACHADO' THEN 1 ELSE 0 END), 0) AS Despachado,
+    COALESCE(SUM(CASE WHEN e.Nombre = N'EN_RUTA' THEN 1 ELSE 0 END), 0) AS EnRuta
+  FROM dbo.Pedido AS p
+  INNER JOIN dbo.EstadoPedido AS e ON e.IDEstadoPedido = p.IDEstadoPedido
+  WHERE e.Nombre IN (N'CONFIRMADO', N'PREPARANDO', N'DESPACHADO', N'EN_RUTA');
+
+  SELECT
+    cancelados.PedidosCancelados,
+    cancelados.MontoCancelado,
+    devueltos.MontoDevuelto,
+    devueltos.PedidosConDevolucion
+  FROM (
+    SELECT
+      COUNT(*) AS PedidosCancelados,
+      COALESCE(SUM(p.Total), 0) AS MontoCancelado
+    FROM dbo.Pedido AS p
+    INNER JOIN dbo.EstadoPedido AS e ON e.IDEstadoPedido = p.IDEstadoPedido
+    WHERE e.Nombre = N'CANCELADO'
+      AND p.FechaCreacion BETWEEN @Desde AND @Hasta
+  ) AS cancelados
+  CROSS JOIN (
+    SELECT
+      COALESCE(SUM(MontoDevuelto), 0) AS MontoDevuelto,
+      COALESCE(SUM(CASE WHEN MontoDevuelto > 0 THEN 1 ELSE 0 END), 0) AS PedidosConDevolucion
+    FROM #Completados
+  ) AS devueltos;
+
+  DECLARE @ExistenciaBaja INT = 5;
+  SELECT @ExistenciaBaja = COALESCE(TRY_CONVERT(INT, Valor), 5)
+  FROM dbo.Configuracion
+  WHERE Clave = N'EXISTENCIA_BAJA';
+
+  IF @ExistenciaBaja IS NULL OR @ExistenciaBaja < 0
+    SET @ExistenciaBaja = 5;
+
+  SELECT
+    @ExistenciaBaja AS Umbral,
+    COUNT(*) AS Variantes
+  FROM dbo.Variante AS v
+  INNER JOIN dbo.Producto AS p ON p.IDProducto = v.IDProducto
+  WHERE v.Activa = 1
+    AND p.Activo = 1
+    AND v.ExistenciaFisica <= @ExistenciaBaja;
+
+  SELECT
+    v.SKU,
+    p.Nombre AS Producto,
+    v.ExistenciaFisica AS Existencia
+  FROM dbo.Variante AS v
+  INNER JOIN dbo.Producto AS p ON p.IDProducto = v.IDProducto
+  WHERE v.Activa = 1
+    AND p.Activo = 1
+    AND v.ExistenciaFisica <= @ExistenciaBaja
+  ORDER BY v.ExistenciaFisica, p.Nombre, v.SKU;
+
+  SELECT
+    CONVERT(date, p.FechaCreacion) AS Periodo,
+    COALESCE(c.Nombre, N'Sin categoria') AS Categoria,
+    SUM(d.Cantidad - d.CantidadDevuelta) AS Unidades,
+    SUM(
+      CONVERT(DECIMAL(18,2), (d.Cantidad - d.CantidadDevuelta)) * d.PrecioUnitario
+      - CASE
+          WHEN d.Cantidad = 0 THEN 0
+          ELSE ROUND(d.DescuentoLinea * CONVERT(DECIMAL(18,4), d.Cantidad - d.CantidadDevuelta) / d.Cantidad, 2)
+        END
+    ) AS Ventas
+  FROM dbo.PedidoDetalle AS d
+  INNER JOIN #Completados AS p ON p.IDPedido = d.IDPedido
+  LEFT JOIN dbo.Categoria AS c ON c.IDCategoria = d.IDCategoriaSnapshot
+  GROUP BY CONVERT(date, p.FechaCreacion), COALESCE(c.Nombre, N'Sin categoria')
+  ORDER BY Periodo, Categoria;
 END;
 GO

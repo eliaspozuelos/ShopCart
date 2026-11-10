@@ -213,6 +213,7 @@ GO
 CREATE OR ALTER PROCEDURE dbo.SP_Pedidos_Listar
   @IDUsuario INT = NULL,
   @IDCliente INT = NULL,
+  @Busqueda NVARCHAR(100) = NULL,
   @Estado NVARCHAR(30) = NULL,
   @Desde DATETIME2(0) = NULL,
   @Hasta DATETIME2(0) = NULL,
@@ -224,19 +225,29 @@ BEGIN
   IF @Pagina IS NULL OR @Pagina < 1 SET @Pagina = 1;
   IF @TamanoPagina IS NULL OR @TamanoPagina < 1 SET @TamanoPagina = 20;
   IF @TamanoPagina > 100 SET @TamanoPagina = 100;
+
+  DECLARE @Texto NVARCHAR(100) = NULL;
+  IF @Busqueda IS NOT NULL AND LTRIM(RTRIM(@Busqueda)) <> N''
+    SET @Texto = REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(@Busqueda)), N'[', N'[[]'), N'%', N'[%]'), N'_', N'[_]');
+
   SELECT COUNT(*) AS TotalRegistros
   FROM dbo.Pedido p
   JOIN dbo.EstadoPedido e ON e.IDEstadoPedido = p.IDEstadoPedido
+  JOIN dbo.Usuario u ON u.IDUsuario = p.IDUsuario
   WHERE (@IDUsuario IS NULL OR p.IDUsuario = @IDUsuario)
     AND (@IDCliente IS NULL OR p.IDUsuario = @IDCliente)
+    AND (@Texto IS NULL OR u.Nombre LIKE N'%' + @Texto + N'%' OR u.Correo LIKE N'%' + @Texto + N'%')
     AND (@Estado IS NULL OR e.Nombre = @Estado)
     AND (@Desde IS NULL OR p.FechaCreacion >= @Desde)
     AND (@Hasta IS NULL OR p.FechaCreacion <= @Hasta);
-  SELECT p.IDPedido, p.NumeroPedido, p.IDUsuario, e.Nombre AS Estado, p.Subtotal, p.Descuento, p.Total, p.FechaCreacion
+  SELECT p.IDPedido, p.NumeroPedido, p.IDUsuario, u.Nombre AS NombreCliente, u.Correo AS CorreoCliente,
+         e.Nombre AS Estado, p.Subtotal, p.Descuento, p.Total, p.FechaCreacion
   FROM dbo.Pedido p
   JOIN dbo.EstadoPedido e ON e.IDEstadoPedido = p.IDEstadoPedido
+  JOIN dbo.Usuario u ON u.IDUsuario = p.IDUsuario
   WHERE (@IDUsuario IS NULL OR p.IDUsuario = @IDUsuario)
     AND (@IDCliente IS NULL OR p.IDUsuario = @IDCliente)
+    AND (@Texto IS NULL OR u.Nombre LIKE N'%' + @Texto + N'%' OR u.Correo LIKE N'%' + @Texto + N'%')
     AND (@Estado IS NULL OR e.Nombre = @Estado)
     AND (@Desde IS NULL OR p.FechaCreacion >= @Desde)
     AND (@Hasta IS NULL OR p.FechaCreacion <= @Hasta)

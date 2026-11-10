@@ -73,6 +73,7 @@ CREATE TABLE dbo.Variante (
     Precio             DECIMAL(18,2) NOT NULL,      -- precio publicado, IVA incluido
     ExistenciaFisica   INT NOT NULL CONSTRAINT DF_Variante_Existencia DEFAULT 0,
     Activa             BIT NOT NULL CONSTRAINT DF_Variante_Activa DEFAULT 1,
+    UrlImagen          NVARCHAR(500) NULL,          -- foto propia; si es NULL se usan las del producto
     Version            ROWVERSION NOT NULL,
     CONSTRAINT PK_Variante PRIMARY KEY (IDVariante),
     CONSTRAINT UQ_Variante_SKU UNIQUE (SKU),

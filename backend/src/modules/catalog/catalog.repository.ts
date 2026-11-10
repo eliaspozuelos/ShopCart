@@ -83,6 +83,24 @@ export class CatalogRepository {
     return attribute;
   }
 
+  async updateAttribute(input: { actorId: number; attributeId: number; name: string }): Promise<AttributeRecord | undefined> {
+    const database = await getDatabase();
+    const result = await database.request()
+      .input('IDUsuarioActor', sql.Int, input.actorId)
+      .input('IDAtributo', sql.Int, input.attributeId)
+      .input('Nombre', sql.NVarChar(50), input.name)
+      .execute<AttributeRecord>('dbo.SP_Catalogo_ActualizarAtributo');
+    return result.recordset[0];
+  }
+
+  async deleteAttribute(input: { actorId: number; attributeId: number }): Promise<void> {
+    const database = await getDatabase();
+    await database.request()
+      .input('IDUsuarioActor', sql.Int, input.actorId)
+      .input('IDAtributo', sql.Int, input.attributeId)
+      .execute('dbo.SP_Catalogo_EliminarAtributo');
+  }
+
   async listProducts(input: {
     page: number;
     pageSize: number;
@@ -200,6 +218,8 @@ export class CatalogRepository {
     sku: string;
     price: number;
     stock?: number | undefined;
+    imageUrl: string | null;
+    updateImage: boolean;
     attributes: Array<{ attributeId: number; value: string }>;
   }): Promise<ProductVariantRecord> {
     const database = await getDatabase();
@@ -211,6 +231,8 @@ export class CatalogRepository {
       .input('Precio', sql.Decimal(18, 2), input.price)
       .input('ExistenciaFisica', sql.Int, input.stock ?? null)
       .input('AtributosJson', sql.NVarChar(sql.MAX), JSON.stringify(input.attributes))
+      .input('UrlImagen', sql.NVarChar(500), input.imageUrl)
+      .input('ActualizarImagen', sql.Bit, input.updateImage)
       .execute<ProductVariantRecord>('dbo.SP_Catalogo_GuardarVariante');
     const variant = result.recordset[0];
     if (!variant) throw new Error('SP_Catalogo_GuardarVariante no devolvió la variante.');

@@ -134,6 +134,10 @@ export class UsersService {
     password: string;
     name: string;
     role: 'Operador' | 'Administrador';
+    line1: string;
+    municipality: string;
+    department: string;
+    phone: string;
   }): Promise<{ id: number }> {
     const passwordHash = await bcrypt.hash(input.password, bcryptRounds);
     const id = await this.usersRepository.createInternalUser({
@@ -142,6 +146,10 @@ export class UsersService {
       passwordHash,
       name: input.name,
       role: input.role,
+      line1: input.line1,
+      municipality: input.municipality,
+      department: input.department,
+      phone: input.phone,
     });
 
     return { id };

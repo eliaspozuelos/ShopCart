@@ -28,6 +28,8 @@ const sqlErrorResponses: Record<number, { statusCode: number; code: string; mess
   50135: { statusCode: 409, code: 'CATALOG_NAME_ALREADY_EXISTS', message: 'Ya existe un elemento del catálogo con ese nombre.' },
   50136: { statusCode: 400, code: 'INVALID_VARIANT_ATTRIBUTES', message: 'Uno o más atributos de la variante no son válidos.' },
   50137: { statusCode: 400, code: 'CATALOG_DATA_REQUIRED', message: 'Debes indicar los datos requeridos del catálogo.' },
+  50162: { statusCode: 404, code: 'ATTRIBUTE_NOT_FOUND', message: 'No se encontró el atributo.' },
+  50163: { statusCode: 409, code: 'ATTRIBUTE_IN_USE', message: 'Ese atributo está en variantes. Quítalo de esas variantes antes de borrarlo.' },
   50138: { statusCode: 500, code: 'INVENTORY_MOVEMENT_TYPE_NOT_CONFIGURED', message: 'Faltan tipos de ajuste de inventario. Ejecuta nuevamente la semilla de la base de datos.' },
   50139: { statusCode: 409, code: 'STOCK_BELOW_RESERVED', message: 'La existencia no puede quedar por debajo de las unidades reservadas.' },
   50140: { statusCode: 404, code: 'COUPON_NOT_FOUND', message: 'El cupón no existe o no está disponible.' },
@@ -69,6 +71,9 @@ const sqlErrorResponses: Record<number, { statusCode: number; code: string; mess
   50229: { statusCode: 409, code: 'CART_ITEM_NOT_AVAILABLE', message: 'El carrito contiene un producto que ya no está disponible.' },
   50230: { statusCode: 409, code: 'IDEMPOTENCY_KEY_CART_MISMATCH', message: 'La llave de idempotencia ya fue utilizada con otro carrito.' },
   50231: { statusCode: 409, code: 'CART_RESERVATION_EXPIRED', message: 'La reserva del carrito venció; vuelve a agregar los productos para continuar.' },
+  50232: { statusCode: 403, code: 'ORDER_CANCEL_NOT_ALLOWED', message: 'Solo puedes cancelar tu propio pedido mientras está confirmado, antes de la preparación.' },
+  50233: { statusCode: 409, code: 'RETURN_ALREADY_RESOLVED', message: 'La solicitud de devolución ya fue resuelta.' },
+  50237: { statusCode: 404, code: 'RETURN_NOT_FOUND', message: 'No se encontró la solicitud de devolución.' },
   51004: { statusCode: 409, code: 'AUDIT_LOG_IMMUTABLE', message: 'La bitácora es inmutable; no se permiten UPDATE ni DELETE.' },
 };
 

@@ -70,12 +70,19 @@ GO
    SP_Usuarios_CrearInterno
    Un Administrador activo crea Operadores u otros Administradores.
    ------------------------------------------------------------ */
+SET ANSI_NULLS ON;
+SET QUOTED_IDENTIFIER ON;
+GO
 CREATE OR ALTER PROCEDURE dbo.SP_Usuarios_CrearInterno
     @IDUsuarioActor         INT,
     @Correo          NVARCHAR(256),
     @ContrasenaHash  NVARCHAR(255),
     @Nombre          NVARCHAR(100),
-    @NombreRol       NVARCHAR(30)
+    @NombreRol       NVARCHAR(30),
+    @Linea1          NVARCHAR(200),
+    @Municipio       NVARCHAR(100),
+    @Departamento    NVARCHAR(100),
+    @Telefono        NVARCHAR(20)
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -113,10 +120,21 @@ BEGIN
 
         DECLARE @IDNuevo INT = SCOPE_IDENTITY();
 
+        INSERT INTO dbo.Direccion (IDUsuario, Alias, Linea1, Municipio, Departamento, Telefono)
+        VALUES (@IDNuevo, N'Contacto', @Linea1, @Municipio, @Departamento, @Telefono);
+
+        DECLARE @IDDireccion INT = SCOPE_IDENTITY();
+
         -- Bitacora: nunca se guarda el hash
         INSERT INTO dbo.Bitacora (IDUsuario, Modulo, Entidad, IDEntidad, Accion, ValorNuevo)
         VALUES (@IDUsuarioActor, N'USUARIOS', N'Usuario', @IDNuevo, N'CREAR',
                 (SELECT @Correo AS Correo, @Nombre AS Nombre, @NombreRol AS Rol
+                 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
+
+        INSERT INTO dbo.Bitacora (IDUsuario, Modulo, Entidad, IDEntidad, Accion, ValorNuevo)
+        VALUES (@IDUsuarioActor, N'USUARIOS', N'Direccion', @IDDireccion, N'CREAR',
+                (SELECT N'Contacto' AS Alias, @Linea1 AS Linea1, @Municipio AS Municipio,
+                        @Departamento AS Departamento, @Telefono AS Telefono
                  FOR JSON PATH, WITHOUT_ARRAY_WRAPPER));
 
         COMMIT TRANSACTION;

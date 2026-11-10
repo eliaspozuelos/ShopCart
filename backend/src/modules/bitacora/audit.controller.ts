@@ -9,4 +9,8 @@ export class AuditController {
     const result = await this.repository.list(input);
     response.json({ data: result.entries, pagination: { ...input, total: result.total, totalPages: Math.ceil(result.total / input.pageSize) || 1 } });
   };
+
+  summary = async (_request: Request, response: Response): Promise<void> => {
+    response.json({ data: await this.repository.summary() });
+  };
 }

@@ -49,15 +49,28 @@ export const createAttributeSchema = z.object({
   name: z.string().trim().min(1).max(50),
 });
 
+export const attributeIdParamsSchema = z.object({
+  attributeId: z.coerce.number().int().positive(),
+});
+
+export const updateAttributeSchema = z.object({
+  name: z.string().trim().min(1).max(50),
+});
+
 const variantAttributeSchema = z.object({
   attributeId: z.number().int().positive(),
   value: z.string().trim().min(1).max(100),
+});
+
+const storedImageSchema = z.string().trim().max(500).refine(isStoredImage, {
+  message: 'La foto no es válida.',
 });
 
 export const saveVariantSchema = z.object({
   sku: z.string().trim().min(1).max(50),
   price: z.number().positive().max(999999999999.99),
   stock: z.number().int().min(0).max(2147483647).optional(),
+  imageUrl: z.union([storedImageSchema, z.literal(''), z.null()]).optional(),
   attributes: z.array(variantAttributeSchema).max(20).default([]),
 }).refine((input) => Number(input.price.toFixed(2)) === input.price, {
   message: 'El precio no puede tener más de dos decimales.',
@@ -65,9 +78,21 @@ export const saveVariantSchema = z.object({
 });
 
 export const saveProductImageSchema = z.object({
-  url: z.string().trim().url().max(500),
+  url: storedImageSchema,
   order: z.number().int().min(0).max(2147483647).default(0),
 });
+
+function isStoredImage(value: string): boolean {
+  if (/^\/api\/v1\/catalog\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.(jpg|png|webp|gif)$/i.test(value)) {
+    return true;
+  }
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
 
 export const createProductSchema = z.object({
   categoryId: z.number().int().positive(),

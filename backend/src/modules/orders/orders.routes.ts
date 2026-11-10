@@ -7,4 +7,5 @@ export const ordersRouter = Router();
 ordersRouter.use(authenticate);
 ordersRouter.get('/', controller.list);
 ordersRouter.get('/:orderId', controller.get);
+ordersRouter.post('/:orderId/cancel', requireRole('Cliente'), controller.cancel);
 ordersRouter.patch('/:orderId/status', requireRole('Operador', 'Administrador'), controller.changeStatus);

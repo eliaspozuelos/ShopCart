@@ -1,4 +1,5 @@
 import { HttpError } from '../../utils/http-error.js';
+import { invalidateReportCache } from '../reports/reports.service.js';
 import { InventoryRepository } from './inventory.repository.js';
 import {
   toInventoryMovementResponse,
@@ -24,12 +25,15 @@ export class InventoryService {
     stock: number;
     reason: string;
   }): Promise<InventoryStockResponse> {
-    return toInventoryStockResponse(await this.inventoryRepository.adjustStock(input));
+    const stock = toInventoryStockResponse(await this.inventoryRepository.adjustStock(input));
+    invalidateReportCache();
+    return stock;
   }
 
   async listMovements(input: {
     actorId: number;
     variantId?: number | undefined;
+    type?: string | undefined;
     page: number;
     pageSize: number;
   }): Promise<{

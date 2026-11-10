@@ -28,6 +28,12 @@ IF OBJECT_ID(N'dbo.SP_Pedidos_CambiarEstado', N'P') IS NULL
 IF OBJECT_ID(N'dbo.SP_Devoluciones_Crear', N'P') IS NULL
     THROW 51006, N'Falta el procedimiento de devoluciones.', 1;
 
+IF OBJECT_ID(N'dbo.SP_Devoluciones_Resolver', N'P') IS NULL
+    THROW 51006, N'Falta el procedimiento que aprueba o rechaza una devolucion.', 1;
+
+IF OBJECT_ID(N'dbo.SP_Devoluciones_Listar', N'P') IS NULL
+    THROW 51006, N'Falta el procedimiento que lista las solicitudes de devolucion.', 1;
+
 IF OBJECT_ID(N'dbo.SP_Reportes_Dashboard', N'P') IS NULL
     THROW 51006, N'Falta el procedimiento de reportes.', 1;
 

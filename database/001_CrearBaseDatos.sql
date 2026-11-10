@@ -184,6 +184,7 @@ CREATE TABLE dbo.Variante (
     Precio             DECIMAL(18,2) NOT NULL,      -- precio publicado, IVA incluido
     ExistenciaFisica   INT NOT NULL CONSTRAINT DF_Variante_Existencia DEFAULT 0,
     Activa             BIT NOT NULL CONSTRAINT DF_Variante_Activa DEFAULT 1,
+    UrlImagen          NVARCHAR(500) NULL,          -- foto propia; si es NULL se usan las del producto
     Version            ROWVERSION NOT NULL,
     CONSTRAINT PK_Variante PRIMARY KEY (IDVariante),
     CONSTRAINT UQ_Variante_SKU UNIQUE (SKU),
@@ -481,12 +482,17 @@ CREATE TABLE dbo.Devolucion (
     IDUsuario         INT NOT NULL,                -- quien registra la devolucion
     Motivo            NVARCHAR(300) NOT NULL,
     MontoReintegrado  DECIMAL(18,2) NOT NULL,
+    Estado            NVARCHAR(20) NOT NULL CONSTRAINT DF_Devolucion_Estado DEFAULT N'SOLICITADA',
+    IDUsuarioResolucion INT NULL,
+    FechaResolucion   DATETIME2(0) NULL,
     Fecha             DATETIME2(0) NOT NULL CONSTRAINT DF_Devolucion_Fecha DEFAULT SYSUTCDATETIME(),
     CONSTRAINT PK_Devolucion PRIMARY KEY (IDDevolucion),
     CONSTRAINT UQ_Devolucion_Pedido UNIQUE (IDDevolucion, IDPedido),         -- destino de la FK compuesta
     CONSTRAINT FK_Devolucion_Pedido FOREIGN KEY (IDPedido) REFERENCES dbo.Pedido (IDPedido),
     CONSTRAINT FK_Devolucion_Usuario FOREIGN KEY (IDUsuario) REFERENCES dbo.Usuario (IDUsuario),
-    CONSTRAINT CK_Devolucion_Monto CHECK (MontoReintegrado >= 0)
+    CONSTRAINT FK_Devolucion_Resolucion FOREIGN KEY (IDUsuarioResolucion) REFERENCES dbo.Usuario (IDUsuario),
+    CONSTRAINT CK_Devolucion_Monto CHECK (MontoReintegrado >= 0),
+    CONSTRAINT CK_Devolucion_Estado CHECK (Estado IN (N'SOLICITADA', N'APROBADA', N'RECHAZADA'))
 );
 GO
 
@@ -620,6 +626,7 @@ CREATE TABLE dbo.Bitacora (
 );
 GO
 CREATE INDEX IX_Bitacora_Modulo ON dbo.Bitacora (Modulo, Fecha DESC);
+CREATE INDEX IX_Bitacora_Fecha ON dbo.Bitacora (Fecha DESC, IDBitacora DESC);
 GO
 
 /* ------------------------------------------------------------

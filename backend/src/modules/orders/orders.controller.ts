@@ -23,6 +23,7 @@ export class OrdersController {
       ...(input.status ? { status: input.status } : {}),
       ...(isCustomer ? { userId: this.userId(request) } : {}),
       ...(!isCustomer && input.customerId ? { customerId: input.customerId } : {}),
+      ...(!isCustomer && input.customer ? { customer: input.customer } : {}),
       ...(input.from ? { from: input.from } : {}),
       ...(input.to ? { to: input.to } : {}),
     }));
@@ -39,6 +40,16 @@ export class OrdersController {
     const order = await this.service.changeStatus({ orderId, actorId, status });
     response.status(200).json({
       message: 'El estado del pedido se actualizó correctamente.',
+      data: order,
+    });
+  };
+
+  cancel = async (request: Request, response: Response): Promise<void> => {
+    const { orderId } = orderIdParamsSchema.parse(request.params);
+    const actorId = this.userId(request);
+    const order = await this.service.changeStatus({ orderId, actorId, status: 'CANCELADO' });
+    response.status(200).json({
+      message: 'Pedido cancelado. La existencia volvió al inventario.',
       data: order,
     });
   };

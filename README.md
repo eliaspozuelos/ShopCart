@@ -9,7 +9,7 @@ Esta es la guía general única para instalar el proyecto, preparar la base de d
 > Para facilitar la navegación y configuración modular, cada carpeta principal del proyecto cuenta con su propia documentación especializada:
 > - 📁 **Base de Datos:** [`database/README.md`](./database/README.md) — Explicación detallada del orden de ejecución de los 25 scripts DDL, catálogo completo de Stored Procedures (100 al 114), triggers de integridad, migraciones y códigos de error SQL 50xxx/51xxx.
 > - 📁 **Backend API:** [`backend/README.md`](./backend/README.md) — Arquitectura en capas de Node.js + Express, variables de entorno, seguridad, encabezados especiales (`X-Guest-Cart-Token`, `X-Idempotency-Key`), envelopes y matriz de roles.
-> - 🧪 **Pruebas de la API:** [`backend/PRUEBAS_API.md`](./backend/PRUEBAS_API.md) — Guía paso a paso con las 55 rutas y ejemplos JSON listos para importar o ejecutar en Postman para validar los requerimientos de RF-01 a RF-09.
+> - 🧪 **Pruebas de la API:** [`backend/PRUEBAS_API.md`](./backend/PRUEBAS_API.md) — Guía paso a paso con las 58 rutas y ejemplos JSON listos para importar o ejecutar en Postman para validar los requerimientos de RF-01 a RF-09.
 
 ---
 
@@ -171,6 +171,20 @@ La cuenta se crea únicamente si aún no existe un usuario Administrador.
 
 ---
 
+### 7. Iniciar el frontend
+
+Con la API en ejecución, abre otra terminal en la raíz del repositorio:
+
+```powershell
+Set-Location .\frontend
+npm install
+npm run dev
+```
+
+La tienda queda en `http://localhost:5173`. Vite reenvía `/api` hacia `http://localhost:3000`, de modo que el navegador conserva la cookie HttpOnly de la sesión. La guía del cliente está en [frontend/README.md](./frontend/README.md).
+
+---
+
 ## Pruebas a través de Postman
 
 Para registrar un Cliente, envía `POST http://localhost:3000/api/v1/auth/register` con este cuerpo JSON:
@@ -194,7 +208,7 @@ Para iniciar sesión, envía `POST http://localhost:3000/api/v1/auth/login`. Usa
 
 Para rutas protegidas, envía el access token de la respuesta como token Bearer. Conserva la cookie HttpOnly que devuelve el login para probar `POST /api/v1/auth/refresh` y `POST /api/v1/auth/logout`.
 
-Para la guía exhaustiva con las 55 rutas disponibles (catálogo, carrito, cupones, checkout, estados, devoluciones, dashboard y auditoría), consulta **[backend/PRUEBAS_API.md](./backend/PRUEBAS_API.md)**.
+Para la guía exhaustiva con las 58 rutas disponibles (catálogo, carrito, cupones, checkout, estados, devoluciones, dashboard y auditoría), consulta **[backend/PRUEBAS_API.md](./backend/PRUEBAS_API.md)**.
 
 ---
 
@@ -207,6 +221,9 @@ Para la guía exhaustiva con las 55 rutas disponibles (catálogo, carrito, cupon
 - **Moneda e Impuestos (Guatemala):** Todos los cálculos monetarios se realizan en **Quetzales (`GTQ`)** con precisión `DECIMAL(18,2)`. Los precios al público incluyen el **12% de IVA**, el cual se congela desglosado contablemente en cada orden según la fórmula legal: $\text{MontoIVA} = \text{Total} - (\text{Total} / 1.12)$.
 - **Concurrencia en Inventario y Carrito:** Las reservas de stock expiran a los 15 minutos. El checkout evalúa existencias bajo bloqueo transaccional (`UPDLOCK, HOLDLOCK`) para impedir sobreventas.
 - **Idempotencia en Checkout:** Soporte obligatorio del encabezado `X-Idempotency-Key` (UUID). Reintentos de red con la misma llave devuelven la orden original sin generar cobros duplicados.
+- **Cancelación del pedido:** El Cliente, el Operador o el Administrador pueden cancelar solo mientras el pedido está en `CONFIRMADO`, antes de que empiece la preparación. En `PREPARANDO` la única salida es `DESPACHADO`. La cancelación reintegra la existencia en el kardex como `ENTRADA` y libera el cupón. El Cliente usa `POST /orders/:orderId/cancel`; el personal usa `PATCH /orders/:orderId/status`.
+- **Devolución:** Con el pedido `ENTREGADO`, el Cliente solicita la devolución, total o parcial. Esa solicitud no mueve inventario. El Operador o el Administrador la aprueba y entonces se reintegra el kardex como `DEVOLUCION`, se actualiza el reembolso y, si ya no queda ninguna unidad, el pedido pasa a `DEVUELTO`. Rechazarla no cambia la existencia. Las devoluciones registradas antes de esta regla quedan en estado `APROBADA`.
+- **Extras de la sección 09:** `POST /auth/login` y `POST /auth/register` comparten un límite de 5 intentos por minuto por IP. El dashboard se conserva 60 segundos en memoria y se descarta al crear un pedido, cambiar su estado, aprobar una devolución o ajustar existencia. El administrador descarga ese mismo periodo en Excel desde el panel. El libro conserva las hojas anteriores y agrega gráficos de ventas por día, semana y mes, categorías, top de productos y estados, además de la venta de cada día por categoría.
 
 Los detalles específicos de la API están en [backend/README.md](./backend/README.md); las decisiones del esquema SQL, en [database/README.md](./database/README.md).
 
@@ -217,13 +234,13 @@ Los detalles específicos de la API están en [backend/README.md](./backend/READ
 | Requerimiento | Alcance | Procedimientos / Tablas Clave |
 | :--- | :--- | :--- |
 | **RF-01: Autenticación y Usuarios** | Roles `Cliente`, `Operador`, `Administrador`. Libreta de direcciones, sesiones rotativas y cambio de clave. | `100_SP_Auth.sql` a `104_SP_Auth_Contrasena.sql`. |
-| **RF-02: Catálogo de Productos** | Categorías, atributos, variantes, imágenes múltiples, búsqueda con filtros y paginación. Carga atómica JSON. | `107_SP_Catalogo.sql`, `dbo.Producto`, `dbo.Variante`. |
+| **RF-02: Catálogo de Productos** | Categorías, atributos (alta, cambio de nombre y baja si ninguna variante los usa), variantes con foto y estado, imagen de producto como respaldo, búsqueda con filtros y paginación. Carga atómica JSON. | `107_SP_Catalogo.sql`, `115_Variante_UrlImagen.sql`, `dbo.Producto`, `dbo.Variante`, `dbo.Atributo`. |
 | **RF-03: Inventario y Kardex** | Stock físico, stock reservado y disponible neto. Ajustes con motivo obligatorio y trazabilidad completa. | `106_SP_Inventario.sql`, `dbo.MovimientoInventario`. |
 | **RF-04: Carrito de Compras** | Carritos para visitantes anónimos (`X-Guest-Cart-Token`) y clientes autenticados. Fusión automática al login. | `109_SP_Carrito.sql`, `dbo.Carrito`, `dbo.ReservaExistencia`. |
 | **RF-05: Cupones y Promociones** | Descuentos porcentuales o monto fijo. Validación de compra mínima, vigencia, límite global y por cliente. | `108_SP_Cupones.sql`, `dbo.Cupon`. |
 | **RF-06: Checkout y Pago** | Conversión atómica del carrito, validación de stock, registro de venta en kardex y pagos `TARJETA` / `CONTRA_ENTREGA`. | `111_SP_Pedidos_Checkout.sql`, `dbo.Pago`. |
-| **RF-07: Gestión de Pedidos** | Máquina de estados: `CONFIRMADO` $\rightarrow$ `PREPARANDO` $\rightarrow$ `DESPACHADO` $\rightarrow$ `EN_RUTA` $\rightarrow$ `ENTREGADO`. Cancelación con reintegro al kardex. | `114_SP_Pedidos_Estado.sql`, `TR_Pedido_ValidarTransicionEstado`. |
-| **RF-08: Devoluciones** | Devolución sobre órdenes entregadas con reintegro físico automático al inventario como movimiento `DEVOLUCION`. | `112_SP_Devoluciones.sql`, `dbo.Devolucion`. |
+| **RF-07: Gestión de Pedidos** | Máquina de estados: `CONFIRMADO` $\rightarrow$ `PREPARANDO` $\rightarrow$ `DESPACHADO` $\rightarrow$ `EN_RUTA` $\rightarrow$ `ENTREGADO`. La cancelación solo sale de `CONFIRMADO`, antes de preparar, y el stock vuelve al kardex. | `114_SP_Pedidos_Estado.sql`, `TR_Pedido_ValidarTransicionEstado`. |
+| **RF-08: Devoluciones** | Solicitud sobre un pedido entregado. El inventario vuelve como `DEVOLUCION` cuando el operador o el administrador la aprueba. Puede ser parcial. | `112_SP_Devoluciones.sql`, `dbo.Devolucion`. |
 | **RF-09: Reportes y Bitácora** | Métricas de ventas netas descontando devoluciones, top 10 productos y log inmutable de auditoría con trigger. | `113_SP_Reportes.sql`, `110_SP_Bitacora.sql`, `TR_Bitacora_Inmutable`. |
 
 ---
@@ -246,14 +263,18 @@ El flujo de pedidos implementado en la base de datos y en la API es:
 stateDiagram-v2
     [*] --> CONFIRMADO: Checkout completado exitosamente
     CONFIRMADO --> PREPARANDO: Operador inicia preparación
-    CONFIRMADO --> CANCELADO: Cancelación temprana (Reintegra stock)
+    CONFIRMADO --> CANCELADO: Cliente, operador o administrador cancela antes de preparar
     PREPARANDO --> DESPACHADO: Pedido empaquetado y listo en bodega
     DESPACHADO --> EN_RUTA: Pedido asignado a transporte
     EN_RUTA --> ENTREGADO: Entrega confirmada con cliente
-    ENTREGADO --> DEVUELTO: Devolución registrada (Reintegra stock)
+    ENTREGADO --> DEVUELTO: Operador o administrador aprueba la devolución completa
     CANCELADO --> [*]
     DEVUELTO --> [*]
 ```
+
+La cancelación solo existe desde `CONFIRMADO`, antes de que el pedido entre a preparación. El Cliente cancela el suyo con `POST /orders/:orderId/cancel`. El Operador o el Administrador también pueden hacerlo con `PATCH /orders/:orderId/status`. En `PREPARANDO` ya no se cancela: el pedido sigue a `DESPACHADO`. Al cancelar, el procedimiento reintegra la existencia pendiente en el kardex como `ENTRADA` y devuelve el uso del cupón.
+
+La devolución no mueve inventario al solicitarla. Con el pedido en `ENTREGADO`, el Cliente envía `POST /orders/:orderId/returns` y queda una solicitud `SOLICITADA`. El Operador o el Administrador la aprueba o la rechaza con `PATCH /orders/:orderId/returns/:returnId`. Solo la aprobación reintegra el kardex como `DEVOLUCION`, actualiza el reembolso y, cuando todas las unidades fueron devueltas, pasa el pedido a `DEVUELTO`. Una devolución parcial deja el pedido en `ENTREGADO`. Las solicitudes que ya se habían registrado antes de esta regla quedan `APROBADA`, porque el inventario ya se había movido.
 
 ---
 
@@ -273,6 +294,9 @@ ShopCart/
 │   ├── migrations/                     # Scripts de migración idempotentes
 │   ├── tablas/                         # Scripts DDL modulares (0001 a 009)
 │   └── triggers/                       # Triggers de máquina de estados e inmutabilidad de bitácora
+├── frontend/                           # Tienda React 19 + TypeScript (Vite)
+│   ├── README.md                       # Cómo ejecutar el cliente y qué módulos cubre
+│   └── src/                            # Módulos auth, catálogo, carrito, checkout, pedidos y cuenta
 ├── backend/                            # API REST (Node.js 24 + Express + TypeScript)
 │   ├── README.md                       # Documentación técnica del backend, capas, .env y seguridad
 │   ├── PRUEBAS_API.md                  # Colección completa de pruebas con Postman para RF-01 a RF-09

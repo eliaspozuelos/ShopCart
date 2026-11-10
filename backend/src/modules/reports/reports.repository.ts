@@ -4,9 +4,14 @@ import type {
   DashboardSnapshot,
   ReportAbandonedRecord,
   ReportCategoryRecord,
+  ReportDayCategoryRecord,
   ReportPeriodRecord,
   ReportProductRecord,
+  ReportAttentionRecord,
+  ReportLossRecord,
   ReportStatusRecord,
+  ReportStockRecord,
+  ReportStockSummaryRecord,
   ReportSummaryRecord,
 } from './reports.types.js';
 
@@ -24,6 +29,11 @@ export class ReportsRepository {
         ReportProductRecord,
         ReportStatusRecord,
         ReportAbandonedRecord,
+        ReportAttentionRecord,
+        ReportLossRecord,
+        ReportStockSummaryRecord,
+        ReportStockRecord,
+        ReportDayCategoryRecord,
       ]>('dbo.SP_Reportes_Dashboard');
 
     return {
@@ -32,9 +42,14 @@ export class ReportsRepository {
       salesByWeek: result.recordsets[2] ?? [],
       salesByMonth: result.recordsets[3] ?? [],
       salesByCategory: result.recordsets[4] ?? [],
+      salesByDayCategory: result.recordsets[12] ?? [],
       topProducts: result.recordsets[5] ?? [],
       statuses: result.recordsets[6] ?? [],
       abandonedCarts: result.recordsets[7]?.[0] ?? {},
+      attention: result.recordsets[8]?.[0] ?? {},
+      losses: result.recordsets[9]?.[0] ?? {},
+      lowStock: result.recordsets[10]?.[0] ?? {},
+      lowStockItems: result.recordsets[11] ?? [],
     };
   }
 }

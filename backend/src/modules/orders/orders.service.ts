@@ -1,4 +1,5 @@
 import { HttpError } from '../../utils/http-error.js';
+import { invalidateReportCache } from '../reports/reports.service.js';
 import { OrdersRepository } from './orders.repository.js';
 
 export class OrdersService {
@@ -7,7 +8,8 @@ export class OrdersService {
   async get(orderId: number, userId?: number) {
     const result = await this.repository.get(orderId, userId);
     if (!result.order) throw new HttpError(404, 'ORDER_NOT_FOUND', 'No se encontró el pedido.');
-    return result;
+    const returns = await this.repository.listReturns(orderId);
+    return { order: result.order, details: result.details, returns };
   }
 
   async list(input: Parameters<OrdersRepository['list']>[0]) {
@@ -18,6 +20,7 @@ export class OrdersService {
   async changeStatus(input: Parameters<OrdersRepository['changeStatus']>[0]) {
     const order = await this.repository.changeStatus(input);
     if (!order) throw new HttpError(404, 'ORDER_NOT_FOUND', 'No se encontró el pedido.');
+    invalidateReportCache();
     return order;
   }
 

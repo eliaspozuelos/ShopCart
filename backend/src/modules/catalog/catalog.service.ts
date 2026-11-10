@@ -43,6 +43,16 @@ export class CatalogService {
     return toAttributeResponse(await this.catalogRepository.createAttribute(input));
   }
 
+  async updateAttribute(input: { actorId: number; attributeId: number; name: string }) {
+    const attribute = await this.catalogRepository.updateAttribute(input);
+    if (!attribute) throw new HttpError(404, 'ATTRIBUTE_NOT_FOUND', 'No se encontró el atributo.');
+    return toAttributeResponse(attribute);
+  }
+
+  async deleteAttribute(input: { actorId: number; attributeId: number }) {
+    await this.catalogRepository.deleteAttribute(input);
+  }
+
   async listProducts(input: {
     page: number;
     pageSize: number;
@@ -58,7 +68,11 @@ export class CatalogService {
     const result = await this.catalogRepository.listProducts(input);
     const currency = await this.configurationRepository.getCurrencyMetadata();
     return {
-      data: result.products.map((product) => toProductSummaryResponse(product, currency)),
+      data: result.products.map((product) => {
+        const summary = toProductSummaryResponse(product, currency);
+        if (input.includeInactive) return summary;
+        return { ...summary, stock: availableUnits(product.ExistenciaDisponible, summary.stock) };
+      }),
       pagination: {
         page: input.page,
         pageSize: input.pageSize,
@@ -74,10 +88,13 @@ export class CatalogService {
       throw new HttpError(404, 'PRODUCT_NOT_FOUND', 'No se encontró el producto.');
     }
 
-    return this.toProductDetailResponse(result);
+    return this.toProductDetailResponse(result, includeInactive ? 'physical' : 'available');
   }
 
-  private async toProductDetailResponse(result: ProductDetailResult): Promise<ProductDetailResponse> {
+  private async toProductDetailResponse(
+    result: ProductDetailResult,
+    stockSource: 'physical' | 'available' = 'physical',
+  ): Promise<ProductDetailResponse> {
     const product = result.product;
     if (!product) throw new Error('El procedimiento no devolvió el producto.');
     const currency = await this.configurationRepository.getCurrencyMetadata();
@@ -99,8 +116,11 @@ export class CatalogService {
         sku: variant.SKU,
         price: variant.Precio,
         priceDisplay: formatMoney(variant.Precio),
-        stock: variant.ExistenciaFisica,
+        stock: stockSource === 'available'
+          ? availableUnits(variant.ExistenciaDisponible, variant.ExistenciaFisica)
+          : variant.ExistenciaFisica,
         active: variant.Activa,
+        imageUrl: variant.UrlImagen || null,
         attributes: result.attributes
           .filter((attribute) => attribute.IDVariante === variant.IDVariante)
           .map((attribute) => ({
@@ -152,9 +172,14 @@ export class CatalogService {
     sku: string;
     price: number;
     stock?: number | undefined;
+    imageUrl?: string | null | undefined;
     attributes: Array<{ attributeId: number; value: string }>;
   }) {
-    const variant = await this.catalogRepository.saveVariant(input);
+    const variant = await this.catalogRepository.saveVariant({
+      ...input,
+      imageUrl: input.imageUrl ? input.imageUrl : null,
+      updateImage: input.imageUrl !== undefined,
+    });
     const detail = await this.getProduct(input.productId, true, input.actorId);
     const response = detail.variants.find(({ id }) => id === variant.IDVariante);
     if (!response) throw new Error('La variante guardada no apareció en el detalle del producto.');
@@ -188,4 +213,10 @@ export class CatalogService {
   async deleteImage(input: { actorId: number; productId: number; imageId: number }): Promise<void> {
     await this.catalogRepository.deleteImage(input);
   }
+}
+
+function availableUnits(value: number | null | undefined, fallback: number): number {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isFinite(parsed)) return Math.max(0, fallback);
+  return Math.max(0, Math.trunc(parsed));
 }

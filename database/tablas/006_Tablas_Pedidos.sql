@@ -180,12 +180,17 @@ CREATE TABLE dbo.Devolucion (
     IDUsuario         INT NOT NULL,                -- quien registra la devolucion
     Motivo            NVARCHAR(300) NOT NULL,
     MontoReintegrado  DECIMAL(18,2) NOT NULL,
+    Estado            NVARCHAR(20) NOT NULL CONSTRAINT DF_Devolucion_Estado DEFAULT N'SOLICITADA',
+    IDUsuarioResolucion INT NULL,
+    FechaResolucion   DATETIME2(0) NULL,
     Fecha             DATETIME2(0) NOT NULL CONSTRAINT DF_Devolucion_Fecha DEFAULT SYSUTCDATETIME(),
     CONSTRAINT PK_Devolucion PRIMARY KEY (IDDevolucion),
     CONSTRAINT UQ_Devolucion_Pedido UNIQUE (IDDevolucion, IDPedido),         -- destino de la FK compuesta
     CONSTRAINT FK_Devolucion_Pedido FOREIGN KEY (IDPedido) REFERENCES dbo.Pedido (IDPedido),
     CONSTRAINT FK_Devolucion_Usuario FOREIGN KEY (IDUsuario) REFERENCES dbo.Usuario (IDUsuario),
-    CONSTRAINT CK_Devolucion_Monto CHECK (MontoReintegrado >= 0)
+    CONSTRAINT FK_Devolucion_Resolucion FOREIGN KEY (IDUsuarioResolucion) REFERENCES dbo.Usuario (IDUsuario),
+    CONSTRAINT CK_Devolucion_Monto CHECK (MontoReintegrado >= 0),
+    CONSTRAINT CK_Devolucion_Estado CHECK (Estado IN (N'SOLICITADA', N'APROBADA', N'RECHAZADA'))
 );
 GO
 
