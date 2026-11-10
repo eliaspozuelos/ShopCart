@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { errorMessage, type UserRole } from '../../../shared/api/client.ts'
+import { Clock } from 'lucide-react'
+import { ApiError, errorMessage, type UserRole } from '../../../shared/api/client.ts'
 import { OutlinedField } from '../../../shared/components/outlined-field.tsx'
 import { FormError, Spinner } from '../../../shared/components/ui.tsx'
 import { useToast } from '../../../shared/components/use-toast.ts'
@@ -35,6 +36,7 @@ function LoginForm({ door }: { door: 'tienda' | 'empresa' }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [waitUntil, setWaitUntil] = useState<number | null>(null)
   const company = door === 'empresa'
   const denied = company && auth.user?.role === 'Cliente'
 
@@ -54,7 +56,7 @@ function LoginForm({ door }: { door: 'tienda' | 'empresa' }) {
     try {
       await auth.login(email, password)
     } catch (caught) {
-      setError(errorMessage(caught))
+      noteAuthFailure(caught, setError, setWaitUntil)
       setPending(false)
     }
   }
@@ -67,10 +69,11 @@ function LoginForm({ door }: { door: 'tienda' | 'empresa' }) {
           ? 'Operadores y administradores entran al panel de la empresa.'
           : 'Usa tu cuenta de ShopCart para pagar y consultar pedidos.'}
       </p>
-      <FormError message={error} />
+      <FormError message={waitUntil ? null : error} />
+      {waitUntil ? <AuthWaitClock until={waitUntil} onDone={() => setWaitUntil(null)} /> : null}
       <OutlinedField label="Correo" type="email" autoComplete="email" required value={email} onChange={setEmail} />
       <OutlinedField label="Contraseña" type="password" autoComplete="current-password" required value={password} onChange={setPassword} />
-      <button className="btn" type="submit" disabled={pending}>{pending ? 'Ingresando...' : 'Ingresar'}</button>
+      <button className="btn" type="submit" disabled={pending || waitUntil !== null}>{pending ? 'Ingresando...' : 'Ingresar'}</button>
       {company ? (
         <p className="muted">¿Eres cliente? <Link to="/ingresar">Ingresar a la tienda</Link></p>
       ) : (
@@ -93,6 +96,7 @@ export function RegisterPage() {
   const [confirmation, setConfirmation] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+  const [waitUntil, setWaitUntil] = useState<number | null>(null)
 
   if (auth.status === 'loading') return <div className="page narrow"><div className="page-center"><Spinner /></div></div>
   if (auth.user) return <Navigate to={landing(auth.user.role, from, 'tienda')} replace />
@@ -108,7 +112,7 @@ export function RegisterPage() {
     try {
       await auth.register({ name, email, password })
     } catch (caught) {
-      setError(errorMessage(caught))
+      noteAuthFailure(caught, setError, setWaitUntil)
       setPending(false)
     }
   }
@@ -117,16 +121,69 @@ export function RegisterPage() {
     <div className="page narrow">
       <form className="auth-card signup" onSubmit={(event) => void submit(event)}>
         <h1>CREA TU CUENTA</h1>
-        <FormError message={error} />
+        <FormError message={waitUntil ? null : error} />
+        {waitUntil ? <AuthWaitClock until={waitUntil} onDone={() => setWaitUntil(null)} /> : null}
         <OutlinedField label="Nombre" autoComplete="name" required value={name} onChange={setName} />
         <OutlinedField label="Correo electrónico" type="email" autoComplete="email" required value={email} onChange={setEmail} />
         <OutlinedField label="Contraseña" type="password" autoComplete="new-password" minLength={8} required value={password} onChange={setPassword} />
         <OutlinedField label="Confirmar contraseña" type="password" autoComplete="new-password" minLength={8} required value={confirmation} onChange={setConfirmation} />
-        <button className="btn" type="submit" disabled={pending}>{pending ? 'Creando...' : 'Crear cuenta'}</button>
+        <button className="btn" type="submit" disabled={pending || waitUntil !== null}>{pending ? 'Creando...' : 'Crear cuenta'}</button>
         <p className="muted signup-login">¿Ya tienes cuenta? <Link to="/ingresar">Ingresar</Link></p>
       </form>
     </div>
   )
+}
+
+function noteAuthFailure(
+  caught: unknown,
+  setError: (message: string | null) => void,
+  setWaitUntil: (until: number | null) => void,
+) {
+  const retryAfterSeconds = caught instanceof ApiError && caught.code === 'AUTH_RATE_LIMIT'
+    ? caught.retryAfterSeconds ?? 60
+    : null
+  if (retryAfterSeconds == null) {
+    setWaitUntil(null)
+    setError(errorMessage(caught))
+    return
+  }
+  setError(null)
+  setWaitUntil(Date.now() + retryAfterSeconds * 1000)
+}
+
+function AuthWaitClock({ until, onDone }: { until: number; onDone: () => void }) {
+  const [left, setLeft] = useState(() => secondsLeft(until))
+  const onDoneRef = useRef(onDone)
+  onDoneRef.current = onDone
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const next = secondsLeft(until)
+      setLeft(next)
+      if (next > 0) return
+      window.clearInterval(timer)
+      onDoneRef.current()
+    }, 250)
+    return () => window.clearInterval(timer)
+  }, [until])
+
+  const clock = formatClock(left)
+  return (
+    <p className="auth-wait" role="timer" aria-live="polite">
+      <span className="auth-wait-clock"><Clock size={16} aria-hidden="true" />{clock}</span>
+      Podrás intentar de nuevo cuando el reloj llegue a cero.
+    </p>
+  )
+}
+
+function secondsLeft(until: number): number {
+  return Math.max(0, Math.ceil((until - Date.now()) / 1000))
+}
+
+function formatClock(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
 }
 
 function landing(role: UserRole, from: string, door: 'tienda' | 'empresa'): string {

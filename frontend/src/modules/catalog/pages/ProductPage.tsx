@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { errorMessage } from '../../../shared/api/client.ts'
+import { ApiError, errorMessage } from '../../../shared/api/client.ts'
 import { Minus, Plus, ZoomIn } from 'lucide-react'
 import { useToast } from '../../../shared/components/use-toast.ts'
 import { Spinner } from '../../../shared/components/ui.tsx'
@@ -34,7 +34,10 @@ export function ProductPage() {
       .then((detail) => {
         if (!active) return
         setResult({ id: productId, product: detail, error: null })
-        const first = detail.variants.find((variant) => variant.active) ?? detail.variants[0]
+        const activeVariants = detail.variants.filter((variant) => variant.active)
+        const first = activeVariants.reduce<ProductVariant | undefined>((cheapest, variant) => (
+          !cheapest || variant.price < cheapest.price ? variant : cheapest
+        ), undefined) ?? detail.variants[0]
         const initial: Record<string, string> = {}
         first?.attributes.forEach((attribute) => {
           initial[attribute.name] = attribute.value
@@ -52,6 +55,11 @@ export function ProductPage() {
 
   const groups = useMemo(() => attributeGroups(product), [product])
   const selected = useMemo(() => findVariant(product, selection), [product, selection])
+  const galleryImages = useMemo(() => {
+    if (!product) return []
+    if (selected?.imageUrl) return [{ id: selected.id, url: selected.imageUrl, order: 0 }]
+    return product.images
+  }, [product, selected])
 
   async function addToCart() {
     if (!selected) return
@@ -62,6 +70,17 @@ export function ProductPage() {
       toast.success('Producto agregado al carrito.')
     } catch (caught) {
       toast.error(errorMessage(caught))
+      if (caught instanceof ApiError && caught.code === 'INSUFFICIENT_STOCK') {
+        try {
+          const detail = await getProduct(productId)
+          setResult({ id: productId, product: detail, error: null })
+          const variant = findVariant(detail, selection)
+          const stock = variant?.stock ?? 0
+          setQuantity((current) => (stock > 0 ? Math.min(current, stock) : 1))
+        } catch {
+          // El aviso ya explica que no hay existencia suficiente.
+        }
+      }
     } finally {
       setPending(false)
     }
@@ -92,11 +111,14 @@ export function ProductPage() {
         {product.name}
       </p>
       <div className="product-detail">
-        <ProductGallery images={product.images} name={product.name} />
+        <ProductGallery
+          images={galleryImages}
+          name={selected ? `${product.name}, ${selected.attributes.map((attribute) => attribute.value).join(', ')}` : product.name}
+        />
         <div className="product-info">
           <p className="product-category">{product.category.name}</p>
           <h1>{product.name}</h1>
-          <p className="detail-price">{selected?.priceDisplay ?? 'Selecciona una variante'}</p>
+          <p className="detail-price">{selected?.priceDisplay ?? 'Producto agotado seleccione otro producto'}</p>
           <p className="muted">{product.description}</p>
           {groups.map((group) => (
             <fieldset key={group.name}>

@@ -45,22 +45,24 @@ export function Pagination({
   page,
   totalPages,
   onPage,
+  disabled = false,
 }: {
   page: number
   totalPages: number
   onPage: (page: number) => void
+  disabled?: boolean
 }) {
   if (totalPages <= 1) return null
   return (
     <nav className="pagination" aria-label="Paginación">
-      <button type="button" className="btn btn-ghost" disabled={page <= 1} onClick={() => onPage(page - 1)}>
+      <button type="button" className="btn btn-ghost" disabled={disabled || page <= 1} onClick={() => onPage(page - 1)}>
         Anterior
       </button>
       <span>Página {page} de {totalPages}</span>
       <button
         type="button"
         className="btn btn-ghost"
-        disabled={page >= totalPages}
+        disabled={disabled || page >= totalPages}
         onClick={() => onPage(page + 1)}
       >
         Siguiente

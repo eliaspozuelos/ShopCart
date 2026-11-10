@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { errorMessage } from '../../../shared/api/client.ts'
+import { ApiError, errorMessage } from '../../../shared/api/client.ts'
 import { ShoppingCart } from 'lucide-react'
 import { useToast } from '../../../shared/components/use-toast.ts'
 import { useCart } from '../../cart/use-cart.ts'
 import { getProduct } from '../catalog.api.ts'
-import { formatProductPrice } from '../price.ts'
+import { extraOptionLabel, formatProductPrice } from '../price.ts'
 import type { ProductSummary } from '../catalog.types.ts'
 
 export function ProductImage({ src, alt }: { src: string | null; alt: string }) {
@@ -22,6 +22,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
   const navigate = useNavigate()
   const [pending, setPending] = useState(false)
   const outOfStock = product.stock <= 0
+  const moreOptions = extraOptionLabel(product.variantCount)
 
   async function addToCart() {
     setPending(true)
@@ -44,6 +45,9 @@ export function ProductCard({ product }: { product: ProductSummary }) {
       toast.success('Se agregó 1 unidad al carrito.')
     } catch (caught) {
       toast.error(errorMessage(caught))
+      if (caught instanceof ApiError && caught.code === 'INSUFFICIENT_STOCK') {
+        navigate(`/producto/${product.id}`)
+      }
     } finally {
       setPending(false)
     }
@@ -61,6 +65,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
       <h3 className="product-name">
         <Link to={`/producto/${product.id}`}>{product.name}</Link>
       </h3>
+      <div className="product-buy">
       <div className="product-bottom">
         <strong className="product-price">{formatProductPrice(product)}</strong>
         <button
@@ -72,6 +77,10 @@ export function ProductCard({ product }: { product: ProductSummary }) {
         >
           <ShoppingCart />
         </button>
+      </div>
+      {moreOptions ? (
+        <Link className="more-options" to={`/producto/${product.id}`}>{moreOptions}</Link>
+      ) : null}
       </div>
     </article>
   )

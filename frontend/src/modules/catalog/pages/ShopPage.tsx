@@ -61,11 +61,18 @@ export function ShopPage() {
     }
   }, [queryKey])
 
+  const [showAllDepartments, setShowAllDepartments] = useState(false)
   const products = result?.key === queryKey ? result.products : []
   const pagination = result?.key === queryKey ? result.pagination : null
   const error = result?.key === queryKey ? result.error : null
   const loading = result?.key !== queryKey
   const categoryId = params.get('categoria') ?? ''
+  const selectedDepartment = categories.findIndex((category) => String(category.id) === categoryId)
+  const canToggleDepartments = categories.length > VISIBLE_DEPARTMENTS
+  const listedDepartments = !canToggleDepartments || showAllDepartments
+    ? categories
+    : visibleDepartments(categories, selectedDepartment, VISIBLE_DEPARTMENTS)
+  const hiddenDepartments = categories.length - listedDepartments.length
   const sortParam = params.get('orden')
   const sort = isProductSort(sortParam) ? sortParam : 'name_asc'
   const available = params.get('disponible') === '1'
@@ -94,20 +101,33 @@ export function ShopPage() {
       />
       <div className="shop-layout">
         <aside className="filters">
-          <h2>Departamentos</h2>
-          <button type="button" className={!categoryId ? 'is-active' : ''} onClick={() => update({ categoria: null })}>
-            Todos
-          </button>
-          {categories.map((category) => (
-            <button
-              key={category.id}
-              type="button"
-              className={categoryId === String(category.id) ? 'is-active' : ''}
-              onClick={() => update({ categoria: String(category.id) })}
-            >
-              {category.name}
+          <section className="dept-card" aria-label="Departamentos">
+            <h2>Departamentos</h2>
+            <button type="button" className={!categoryId ? 'is-active' : ''} onClick={() => update({ categoria: null })}>
+              Todos
             </button>
-          ))}
+            {listedDepartments.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                className={categoryId === String(category.id) ? 'is-active' : ''}
+                aria-current={categoryId === String(category.id) ? 'true' : undefined}
+                onClick={() => update({ categoria: String(category.id) })}
+              >
+                {category.name}
+              </button>
+            ))}
+            {canToggleDepartments ? (
+              <button
+                type="button"
+                className="dept-more"
+                aria-expanded={showAllDepartments}
+                onClick={() => setShowAllDepartments((current) => !current)}
+              >
+                {showAllDepartments ? 'Ver menos' : `Ver más (${hiddenDepartments})`}
+              </button>
+            ) : null}
+          </section>
           <form onSubmit={applyPrice}>
             <h2>Precio</h2>
             <div className="price-range">
@@ -157,6 +177,15 @@ export function ShopPage() {
       </div>
     </div>
   )
+}
+
+const VISIBLE_DEPARTMENTS = 5
+
+function visibleDepartments<T>(categories: T[], selectedIndex: number, limit: number): T[] {
+  if (selectedIndex < limit) return categories.slice(0, limit)
+  const selected = categories[selectedIndex]
+  if (!selected) return categories.slice(0, limit)
+  return [...categories.slice(0, limit - 1), selected]
 }
 
 function minNumber(value: string | null): number | undefined {

@@ -3,15 +3,16 @@ import type { ProductSort, ProductSummary } from './catalog.types.ts'
 
 export function formatProductPrice(product: ProductSummary): string {
   const minimum = Number(product.price.minimum)
-  const maximum = Number(product.price.maximum)
   const symbol = product.currencySymbol || 'Q'
   if (!Number.isFinite(minimum)) return 'Sin precio'
-  if (Number.isFinite(maximum) && maximum !== minimum) {
-    const low = product.price.minimumDisplay ?? money(minimum, symbol)
-    const high = product.price.maximumDisplay ?? money(maximum, symbol)
-    return `${low} – ${high}`
-  }
   return product.price.minimumDisplay ?? money(minimum, symbol)
+}
+
+export function extraOptionLabel(variantCount: number | null | undefined): string | null {
+  const extra = Number(variantCount) - 1
+  if (!Number.isFinite(extra) || extra <= 0) return null
+  if (extra === 1) return '1 opción más disponible'
+  return `${extra} opciones más disponibles`
 }
 
 export function isProductSort(value: string | null): value is ProductSort {

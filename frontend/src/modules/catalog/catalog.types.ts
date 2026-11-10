@@ -22,6 +22,7 @@ export interface ProductSummary {
   primaryImage: string | null
   price: ProductPrice
   stock: number
+  variantCount: number
 }
 
 export interface ProductVariant {
@@ -31,6 +32,7 @@ export interface ProductVariant {
   priceDisplay: string
   stock: number
   active: boolean
+  imageUrl: string | null
   attributes: Array<{ id: number; name: string; value: string }>
 }
 
